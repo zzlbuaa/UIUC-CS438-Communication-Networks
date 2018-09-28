@@ -1,0 +1,10 @@
+test results:
+
+ Dummy test succeeded! (Remember, this assignment isn't graded; the 'score' listed in this file is meaningless).
+====================
+
+version:1
+score: 100/100
+all-time best score (your current grade): 100/100
+
+
