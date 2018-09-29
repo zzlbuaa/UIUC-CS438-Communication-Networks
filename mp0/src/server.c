@@ -115,6 +115,9 @@ int main(void)
 
 		if (!fork()) { // this is the child process
 			close(sockfd); // child doesn't need the listener
+
+			sleep(10);
+
 			if (send(new_fd, "Hello, world!", 13, 0) == -1)
 				perror("send");
 			close(new_fd);
