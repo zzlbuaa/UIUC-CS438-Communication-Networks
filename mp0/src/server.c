@@ -15,6 +15,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+#include <time.h>
+
 #define PORT "3490"  // the port users will be connecting to
 
 #define BACKLOG 10	 // how many pending connections queue will hold
@@ -116,7 +118,16 @@ int main(void)
 		if (!fork()) { // this is the child process
 			close(sockfd); // child doesn't need the listener
 
+			time_t curtime;
+			struct tm *loc_time;
+			curtime = time (NULL);
+   			loc_time = localtime (&curtime);
+  		 	printf("Start: %s", asctime (loc_time));
+
 			sleep(10);
+			curtime = time (NULL);
+   			loc_time = localtime (&curtime);
+  		 	printf("End: %s", asctime (loc_time));
 
 			if (send(new_fd, "Hello, world!", 13, 0) == -1)
 				perror("send");
