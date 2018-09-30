@@ -20,7 +20,7 @@
 #include <string>
 #include <fstream>
 
-#define PORT "80"  // the port users will be connecting to
+//#define PORT "80"  // the port users will be connecting to
 
 #define BACKLOG 10	 // how many pending connections queue will hold
 #define MAXDATASIZE 1024 // max number of bytes we can get at once
@@ -76,13 +76,13 @@ void send_file(std::string dir, int sockfd) {
 	char buff[MAXDATASIZE];
     FILE *fp = fopen(dir.c_str(), "rb");
     if(!fp) {
-    	std::string header = "HTTP/1.0 404 Not Found\r\n\r\n";
+    	std::string header = "HTTP/1.1 404 Not Found\r\n\r\n";
 	  	if (send(sockfd, header.c_str(), header.length(), 0) == -1)
 			perror("send 404");
 		return;
     }
 
-    std::string header = "HTTP/1.0 200 OK\r\n\r\n";
+    std::string header = "HTTP/1.1 200 OK\r\n\r\n";
   	if (send(sockfd, header.c_str(), header.length(), 0) == -1)
 		perror("send 200");
 
@@ -107,7 +107,7 @@ void send_file(std::string dir, int sockfd) {
   	return;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
 	struct addrinfo hints, *servinfo, *p;
@@ -118,12 +118,18 @@ int main(void)
 	char s[INET6_ADDRSTRLEN];
 	int rv;
 
+	if (argc != 2) {
+	    fprintf(stderr,"usage: server port number\n");
+	    exit(1);
+	}
+	std::string PORT = std::string(argv[1]);
+
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
-	if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+	if ((rv = getaddrinfo(NULL, PORT.c_str(), &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
@@ -200,12 +206,11 @@ int main(void)
 				}
 
 				request = std::string(buf);
-				type = request.substr(0, 3);
+				type = request.substr(0,3);
 				if (type != "GET") {
-					std::string header = "HTTP/1.0 400 Bad Request\r\n\r\n";
+					std::string header = "HTTP/1.1 400 Bad Request\r\n\r\n";
 					if (send(sockfd, header.c_str(), header.length(), 0) == -1)
 						perror("send 400");
-					break;
 				}
 				dir = parse_request(request);
 				std::cout << "Request: " << request << std::endl;
