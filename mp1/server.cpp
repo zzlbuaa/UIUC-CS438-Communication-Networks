@@ -192,6 +192,7 @@ int main(void)
 			char buf[MAXDATASIZE];
 			std::string request = "";
 			std::string dir = "";
+			std::string type = "";
 			while(true) {
 				numbytes = recv(new_fd, buf, MAXDATASIZE, 0);
 				if(numbytes <=  0) {
@@ -199,6 +200,13 @@ int main(void)
 				}
 
 				request = std::string(buf);
+				type = request.substr(0, 3);
+				if (type != "GET") {
+					std::string header = "HTTP/1.0 400 Bad Request\r\n\r\n";
+					if (send(sockfd, header.c_str(), header.length(), 0) == -1)
+						perror("send 400");
+					break;
+				}
 				dir = parse_request(request);
 				std::cout << "Request: " << request << std::endl;
 				std::cout << "Dir: " << dir << std::endl;
