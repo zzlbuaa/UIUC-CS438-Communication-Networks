@@ -63,37 +63,38 @@ std::string parse_request(std::string& request) {
 }
 
 void send_file(char name[], int sockfd) {
-  std::ifstream is ("test.bin", std::ifstream::binary|std::ios::ate);
-  std::string header = "HTTP/1.1 200 OK\r\n\r\n";
-  if (send(sockfd, header.c_str(), header.length(), 0) == -1)
-	perror("send");
-	std::streampos size;
+	char buff[MAXDATASIZE];
+    FILE *fp = fopen(name, "rb");
+    if(!fp) {
+    	std::string header = "HTTP/1.1 404 Not Found\r\n\r\n";
+	  	if (send(sockfd, header.c_str(), header.length(), 0) == -1)
+			perror("send 404");
+		return;
+    }
 
-  char * buffer;
-  if (is.is_open()) {
-    // get length of file:
-    // read data as a block:
-    size = is.tellg();
-    buffer =  new char [size];
-    is.seekg(0, std::ios::beg);
-    is.read (buffer, size);
-    is.close();
+    std::string header = "HTTP/1.1 200 OK\r\n\r\n";
+  	if (send(sockfd, header.c_str(), header.length(), 0) == -1)
+		perror("send 200");
 
-    printf("\n%u\n%u\n", buffer[0], buffer[1]);
-    printf("size:%d\n", size);
-
-    //std::string temp = buffer;
-    // ...buffer contains the entire file...
-    //delete[] buffer;
-    //std::cout << "buffer: " << temp << std::endl;
-    if (send(sockfd, buffer, MAXDATASIZE, 0) == -1)
-    //if (send(sockfd, "hello world\r\n", 13, 0) == -1)
-	perror("send");
-  }
-  is.close();
-  std::cout << "finish reading" << std::endl;
-  exit(0);
-
+    while(!feof(fp)) {
+    	size_t ret_code = fread(buff, sizeof(char), MAXDATASIZE, fp); // reads an array of doubles
+    	if(ret_code <= 0) {
+        	printf("finish reading.\n");
+        	break;
+    	} else if(ret_code == MAXDATASIZE){ // error handling
+       		printf("reading.\n");
+       		if (send(sockfd, buff, MAXDATASIZE, 0) == -1)
+       			perror("send");
+   		} else {
+   			printf("reading.\n");
+       		if (send(sockfd, buff, (int)ret_code, 0) == -1)
+       			perror("send");
+   		}
+  	}
+ 
+   	fclose(fp);
+ 	std::cout << "finish reading" << std::endl;
+  	exit(0);
 }
 
 int main(void)
@@ -195,8 +196,6 @@ int main(void)
 				send_file(name, new_fd);
 			}
 
-			//if (send(new_fd, "Hello, world!", 13, 0) == -1)
-			//	perror("send");
 			close(new_fd);
 			std::cout << "Child process finished, socket closed" << std::endl;
 			exit(0);

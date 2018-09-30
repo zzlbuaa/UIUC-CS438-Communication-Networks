@@ -36,6 +36,37 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+void readFile(char name[], char *buffer) {
+	FILE *file;
+    unsigned long fileLen;
+
+    //Open file
+    file = fopen(name, "rb");
+    if (!file)
+    {
+        fprintf(stderr, "Unable to open file %s", name);
+        return;//TODO: should return HTTP404!
+    }   
+    
+    //Get file length
+    fseek(file, 0, SEEK_END);
+    fileLen=ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    //Allocate memory
+    buffer=(char *)malloc(fileLen);
+    if (!buffer)
+    {
+        fprintf(stderr, "Memory error!");
+        fclose(file);
+        return;
+    }
+
+    //Read file contents into buffer
+    fread(buffer, fileLen, 1, file);
+    printf("Readflie: %u\n", buffer[0]);
+}
+
 int main(void)
 {
 	int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
@@ -117,19 +148,48 @@ int main(void)
 
 		if (!fork()) { // this is the child process
 			close(sockfd); // child doesn't need the listener
+  		 	
+  		 	FILE *file;
+		    unsigned long fileLen;
+		    char *buffer;
 
-			time_t curtime;
-			struct tm *loc_time;
-			curtime = time (NULL);
-   			loc_time = localtime (&curtime);
-  		 	printf("Start: %s", asctime (loc_time));
+		    char name[] = {"test.bin"};
+		    //Open file
+		    file = fopen(name, "rb");
+		    if (!file)
+		    {
+		        fprintf(stderr, "Unable to open file %s", name);
+		        return 0;//TODO: should return HTTP404!
+		    }   
+		    
+		    //Get file length
+		    fseek(file, 0, SEEK_END);
+		    fileLen=ftell(file);
+		    fseek(file, 0, SEEK_SET);
 
-			sleep(10);
-			curtime = time (NULL);
-   			loc_time = localtime (&curtime);
-  		 	printf("End: %s", asctime (loc_time));
+		    //Allocate memory
+		    buffer=(char *)malloc(fileLen);
+		    if (!buffer)
+		    {
+		        fprintf(stderr, "Memory error!");
+		        fclose(file);
+		        return 0;
+		    }
 
-			if (send(new_fd, "Hello, world!", 13, 0) == -1)
+		    //Read file contents into buffer
+		    fread(buffer, 1, fileLen, file);
+		    printf("Readflie: %s\n", buffer);
+		    itoa (i,buffer,2);
+  			printf ("binary: %s\n",buffer);
+
+
+			//if (send(new_fd, file, 48, 0) == -1)
+			//	perror("send");
+			//int n = 0;
+			//char out[fileLen];
+			//n = sprintf (out, "%u", buffer[0]);
+
+			if (send(new_fd, buffer, fileLen, 0) == -1)
 				perror("send");
 			close(new_fd);
 			exit(0);

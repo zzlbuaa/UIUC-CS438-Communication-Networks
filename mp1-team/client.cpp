@@ -69,6 +69,27 @@ vector<string> parse_url(string& text){
 	return res;
 }
 
+bool processHeader(string header){
+	string status_code = "";
+	for(int i=0; i<header.length(); i++){
+		if(header[i] == ' '){
+			header = header.substr(i+1);
+			int j = 0;
+			while(header[j] != ' '){
+				j++;
+			}
+			status_code = header.substr(0,j);
+			break;
+		}
+	}
+	cout << status_code << endl;
+	if(status_code != "200"){
+		return false;
+	}else{
+		return true;
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int sockfd, numbytes;  
@@ -87,7 +108,11 @@ int main(int argc, char *argv[])
 	hints.ai_socktype = SOCK_STREAM;
 	string text = std::string(argv[1]);
 	vector<string> parsed_url = parse_url(text);
-	string request = "GET " + parsed_url[2] + " HTTP/1.1\r\n\r\n";
+	string request = "GET " + parsed_url[2] + " HTTP/1.1\r\n" \
+	+ "User-Agent: Wget/1.15 (linux-gnu)\r\n" + \
+	"Host: " + parsed_url[0] + ":" + parsed_url[1] + "\r\n" + \
+	"Connection: Keep-Alive\r\n\r\n";
+	cout << request << endl;
 	// for(int i=0; i<parsed_url.size(); i++){
 	// 	cout << parsed_url[i] << endl;
 	// }
@@ -136,39 +161,43 @@ int main(int argc, char *argv[])
 	string received = "";
 	int count = 0;
 	char c;
+	int line = 0;
 
-	// filter response headler
+	// filter response header
 	while(true){
 		recv(sockfd, &c, 1, 0);
-		std::cout << "Received header" << std::endl;
-		if(c == '\n' && count > 3 && received[count-1] == '\r' && received[count-2] == '\n' && received[count-3] == '\r'){
-			break;
+		// cout << c;
+		if(c == '\n' &&  received[count-1] == '\r'){
+			received += c;
+			if(line == 0){
+				if(processHeader(received) == false){
+					break;
+				}
+			}else if(received.length() == 2 && line > 0){
+				// download file
+				cout << "start downloading" << endl;
+				string outputpath = "./output";
+				FILE *file = fopen(outputpath.c_str(), "w");
+				while(true){
+					numbytes = recv(sockfd, buf, MAXDATASIZE, 0);
+					if(numbytes <= 0){
+						break;
+					}
+					fwrite(buf, numbytes, 1, file);
+				}
+				fclose(file);
+				cout << "File received." << endl;
+				break;
+			}
+			cout << received << endl;
+			received = "";
+			count = 0;
+			line++;
 		}else{
 			received += c;
 			count++;
 		}
 	}
-
-	// download file
-	ofstream output;
-	output.open("output");
-
-	while(true){
-		cout << "Receiving." << endl;
-		numbytes = recv(sockfd, buf, MAXDATASIZE, 0);
-		if(numbytes <= 0){
-			break;
-		}
-
-		printf("%u\n%u\n", buf[0], buf[1]);
-		received = std::string(buf);
-		std::cout << received << std::endl;
-		output << received;
-	}
-
-	output.close();
-
-	cout << "File received." << endl;
 
 	close(sockfd);
 
