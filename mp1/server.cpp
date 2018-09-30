@@ -76,13 +76,13 @@ void send_file(std::string dir, int sockfd) {
 	char buff[MAXDATASIZE];
     FILE *fp = fopen(dir.c_str(), "rb");
     if(!fp) {
-    	std::string header = "HTTP/1.1 404 Not Found\r\n\r\n";
+    	std::string header = "HTTP/1.0 404 Not Found\r\n\r\n";
 	  	if (send(sockfd, header.c_str(), header.length(), 0) == -1)
 			perror("send 404");
 		return;
     }
 
-    std::string header = "HTTP/1.1 200 OK\r\n\r\n";
+    std::string header = "HTTP/1.0 200 OK\r\n\r\n";
   	if (send(sockfd, header.c_str(), header.length(), 0) == -1)
 		perror("send 200");
 
