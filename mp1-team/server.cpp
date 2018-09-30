@@ -104,7 +104,7 @@ void send_file(std::string dir, int sockfd) {
  
    	fclose(fp);
  	std::cout << "finish reading" << std::endl;
-  	exit(0);
+  	return;
 }
 
 int main(void)
@@ -204,6 +204,7 @@ int main(void)
 				std::cout << "Dir: " << dir << std::endl;
 				//char name[] = {"test.bin"};
 				send_file(dir, new_fd);
+				break;
 			}
 
 			close(new_fd);
