@@ -59,12 +59,22 @@ std::string parse_request(std::string& request) {
 		}
 		i++;
 	}
+
+	i = 0;
+	len = dir.length();
+	while(i < len) {
+		if(dir[i] == '/') {
+			dir = dir.substr(i + 1, len - 1);
+			return dir;
+		}
+		i++;
+	}
 	return dir;
 }
 
-void send_file(char name[], int sockfd) {
+void send_file(std::string dir, int sockfd) {
 	char buff[MAXDATASIZE];
-    FILE *fp = fopen(name, "rb");
+    FILE *fp = fopen(dir.c_str(), "rb");
     if(!fp) {
     	std::string header = "HTTP/1.1 404 Not Found\r\n\r\n";
 	  	if (send(sockfd, header.c_str(), header.length(), 0) == -1)
@@ -192,8 +202,8 @@ int main(void)
 				dir = parse_request(request);
 				std::cout << "Request: " << request << std::endl;
 				std::cout << "Dir: " << dir << std::endl;
-				char name[] = {"test.bin"};
-				send_file(name, new_fd);
+				//char name[] = {"test.bin"};
+				send_file(dir, new_fd);
 			}
 
 			close(new_fd);
