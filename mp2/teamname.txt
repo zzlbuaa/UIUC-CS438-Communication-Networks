@@ -1,0 +1,2 @@
+A name for your team.
+Will appear at http://expass_synrg.csl.illinois.edu/PicturePasswords/queueinfo.html
