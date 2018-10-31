@@ -16,6 +16,11 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include <iostream>
+#include <fstream>
+
+#define MAX_BUFFER 5000
+#define MSS 1450
 
 
 struct sockaddr_in si_me, si_other;
