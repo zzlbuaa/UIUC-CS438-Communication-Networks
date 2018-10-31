@@ -55,12 +55,18 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
 
 
 	/* Send data and receive acknowledgements on s*/
+    if (sendto(fd, &a, sizeof(a), 0, (struct sockaddr *)&si_other, sizeof(si_other)) < 0) {
+        perror("sendto failed");
+        exit(3);
+    }
 
     printf("Closing the socket\n");
     close(s);
     return;
 
 }
+
+void 
 
 /*
  * 
