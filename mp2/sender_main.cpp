@@ -38,7 +38,7 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         exit(1);
     }
 
-	/* Determine how many bytes to transfer */
+    /* Determine how many bytes to transfer */
 
     slen = sizeof (si_other);
 
@@ -54,19 +54,13 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
     }
 
 
-	/* Send data and receive acknowledgements on s*/
-    if (sendto(fd, &a, sizeof(a), 0, (struct sockaddr *)&si_other, sizeof(si_other)) < 0) {
-        perror("sendto failed");
-        exit(3);
-    }
+    /* Send data and receive acknowledgements on s*/
 
     printf("Closing the socket\n");
     close(s);
     return;
 
 }
-
-void 
 
 /*
  * 
@@ -90,5 +84,3 @@ int main(int argc, char** argv) {
 
     return (EXIT_SUCCESS);
 }
-
-
