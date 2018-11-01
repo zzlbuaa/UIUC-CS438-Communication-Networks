@@ -11,15 +11,13 @@ test results:
 
 -10:  quick convergence failed: failed to send 20MB in 20s (receiver wrote 0 bytes)
 
--10:  TCP friendliness failed: your process died or ended early. (note: it's being given 999000999000 as the numBytes argument)
-
--10:  TCP friendliness with 1% loss failed: your process died or ended early. (note: it's being given 999000999000 as the numBytes argument)
-
+ TCP friendliness succeeded! (TCP got 39.3 Mbps)
+ TCP friendliness with 1% loss succeeded! (TCP got 18.2 Mbps)
  -10:  competition vs TCP failed: received file had an error.
 
 ====================
 
-version:5
+version:6
 score: 0/100
 all-time best score (your current grade): 0/100
 
