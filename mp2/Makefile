@@ -1,7 +1,7 @@
 CXX = g++
 LD = g++
-CXXFLAGS := -std=c++1z -c -g -O0 -Wall -Wextra -pedantic 
-LDFLAGS := -std=c++1z 
+CXXFLAGS := -std=c++1z -c -g -O0 -Wall -Wextra -pedantic -lpthread
+LDFLAGS := -std=c++1z -lpthread
 
 all : reliable_sender reliable_receiver
 
