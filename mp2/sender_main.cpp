@@ -27,17 +27,18 @@
 
 using namespace std;
 
-#define MSS 1024
+#define MSS 1450
 #define SS 0
 #define CA 1
 #define FR 2
+#define SS_CW 80
 
 
 typedef struct sharedData{
-    int timeout = 2000;
+    int timeout = 50;
     int dupAcksCount = 0;
-    int threshold = 10;
-    double CW = 1;
+    int threshold = 100;
+    double CW = 80;
     int mode = SS; //SS
     int sendBase = 0;
     long int timer = 0;
@@ -54,6 +55,7 @@ typedef struct Segment{
 
 vector<segment> buffer;
 int package_total;
+
 
 shared_data data;
 
@@ -153,7 +155,8 @@ void* watchDog(void *id){
             }
             data.timer = ms; // update timer
             data.threshold = data.CW / 2;
-            data.CW = 1.0;
+            data.CW = SS_CW;
+            //data.CW -= 1;
             data.dupAcksCount = 0;
             data.mode = SS;
         }
@@ -189,6 +192,7 @@ void* receiveAck(void *id){
                         data.timer = ms;
                         data.dupAcksCount = 0;
                         data.CW += 1;
+                        cout << "SS: CW:" << data.CW << endl;
                         if(data.CW >= data.threshold){
                             data.mode = CA;
                         }
@@ -221,6 +225,7 @@ void* receiveAck(void *id){
                         data.timer = ms;
                         data.dupAcksCount = 0;
                         data.CW = data.CW + 1.0 / int(data.CW);
+                        cout << "CA: CW:" << data.CW << endl;
                     }else{
                         if(ack_sig == data.sendBase-1){
                             data.dupAcksCount++;
@@ -253,6 +258,7 @@ void* receiveAck(void *id){
                         data.mode = CA;
                     }else{
                         data.CW += 1;
+                        cout << "FR: CW:" << data.CW << endl;
                         data.dupAcksCount++;
                     }
                     break;

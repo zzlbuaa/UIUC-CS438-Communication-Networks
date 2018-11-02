@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#define MSS 1024
+#define MSS 1450
 
 #define _DEBUG
 
@@ -37,6 +37,7 @@ struct sockaddr_in si_me, si_other;
 
 int s; 
 socklen_t slen;
+FILE *fp;
 
 void diep(char *s) {
     perror(s);
@@ -100,72 +101,27 @@ void closeConnection(){
 //     return;
 // }
 
-void writeFile(char* filename, int seq){
-    FILE *fp;
-    #ifdef _DEBUG
-    //cout << "Writing file..." << endl;
-    #endif
+void writeFile(int seq){
     //append to existing file every time
-    if(seq == 0) {
-        fp = fopen(filename, "wb");
-    }else{
-        fp = fopen(filename, "ab");
-    }
-    if (fp == NULL) {
-        printf("Could not open file to send.");
-        exit(1);
-    }
-
     segment *seg = buf[seq];
 
     size_t ret_code = fwrite(seg->datagram, sizeof(char), seg->len, fp);
     if ((int)ret_code <= 0){
         return;
     }
-
-    // if(!isLastPckt){
-    //     size_t ret_code = fwrite(seg->datagram, sizeof(char), MSS, fp);
-    //     if ((int)ret_code <= 0){
-    //         return;
-    //     }
-    // }else{
-    //     int j=MSS;
-    //     while(seg->datagram[j] == '\0'){
-    //         j--;
-    //     }
-    //     if (j != 1023 ) cout << "j: " << j << endl;
-    //     size_t ret_code = fwrite(seg->datagram, sizeof(char), j+1, fp);
-    //     if ((int)ret_code <= 0){
-    //         return;
-    //     }
-    // }
-
-    fclose(fp);
     return;
 }
 
-// void writeFile(char* filename, int highest_ack){
-//     cout << "Writing file..." << endl;
-//     FILE *fp;
-//     fp = fopen(filename, "wb");
-//     if (fp == NULL) {
-//         printf("Could not open file to send.");
-//         exit(1);
-//     }
-//     for(int i=0; i<=highest_ack; i++){
-//         segment *seg = buf[i];
-//         int j=0;
-//         while(seg->datagram[j] != '\0'){
-//             fputc(seg->datagram[j], fp);
-//             j++;
-//         }
-//     }
-//     fclose(fp);
-//     return;
-// }
-
 void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
     
+    remove(destinationFile);
+    fp = fopen(destinationFile, "ab");
+    if (fp == NULL) {
+        printf("Could not open file to send.");
+        exit(1);
+    }
+
+
     slen = sizeof (si_other);
 
     if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
@@ -215,11 +171,11 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
         }
 
         if(seq_num == expected_ack){
-            writeFile(destinationFile, expected_ack);
+            writeFile(expected_ack);
             int i = expected_ack+1;
             while(buf.count(i) > 0){
                 // find next empty slot 
-                writeFile(destinationFile, i);
+                writeFile(i);
                 i++;
             }
             
@@ -250,6 +206,7 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
     //writeFile(destinationFile, highest_ack, true);
 
     close(s);
+    fclose(fp);
     printf("%s received.", destinationFile);
     return;
 }
@@ -267,7 +224,6 @@ int main(int argc, char** argv) {
     }
 
     udpPort = (unsigned short int) atoi(argv[1]);
-
     reliablyReceive(udpPort, argv[2]);
 }
 
