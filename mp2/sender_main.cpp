@@ -154,7 +154,7 @@ void* receiveAck(void*){
                 #endif
 
                 // data.threshold = data.CW / 2;
-                data.threshold = data.CW * 0.70;
+                data.threshold = data.CW * 0.50;
                 data.dupAcksCount = 0;
                 data.mode = SS;
                 sem_wait(&data.sem);
@@ -214,7 +214,7 @@ void* receiveAck(void*){
                             #endif
                             data.mode = FR;
                             // data.threshold = data.CW / 2;
-                            data.threshold = data.CW * 0.70;
+                            data.threshold = data.CW * 0.50;
                             sem_wait(&data.sem);
                             data.CW = data.threshold + 3;
                             sem_post(&data.sem);
@@ -245,7 +245,7 @@ void* receiveAck(void*){
                         if(++(data.dupAcksCount) == 3){
                             data.mode = FR;
                             // data.threshold = data.CW / 2;
-                            data.threshold = data.CW * 0.70;
+                            data.threshold = data.CW * 0.50;
                             sem_wait(&data.sem);
                             data.CW = data.threshold + 3;
                             sem_post(&data.sem);
