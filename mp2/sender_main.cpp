@@ -39,7 +39,7 @@ using namespace std;
 
 #define CW_DEC_FACTOR 0.4
 
-#define _DEBUG
+//#define _DEBUG
 
 typedef struct sharedData{
     int timeout = 3;
