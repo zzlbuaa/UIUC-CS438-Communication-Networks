@@ -18,6 +18,7 @@
 #include <vector>
 #include <iostream>
 #include <unordered_map>
+#include <time.h>
 
 using namespace std;
 
@@ -26,9 +27,9 @@ using namespace std;
 #define _DEBUG
 
 typedef struct Segment{
-    short seq_num;
+    long seq_num;
     short len;
-    char datagram[MSS+1];
+    char datagram[MSS];
 }segment;
 
 unordered_map<int,segment*> buf;
@@ -44,18 +45,19 @@ void diep(char *s) {
     exit(1);
 }
 
+long total = 0;
 
 void closeConnection(){
     #ifdef _DEBUG
-    cout << "prepare for closing..." << endl;
+    cout << "Prepare for closing..." << endl;
     #endif
     while(true){
         struct timeval tp;
         tp.tv_sec = 0;
-        tp.tv_usec = 20*1000;
+        tp.tv_usec = 2000;
         int fin_sig = -1;
         if(sendto(s, &fin_sig, sizeof(fin_sig), 0, (struct sockaddr *)&si_other, slen) == -1){
-            diep("send error");
+            diep("FIN sending error");
         }
         int ret = setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tp, sizeof(tp));
         segment package;
@@ -64,42 +66,10 @@ void closeConnection(){
             if(errno == EAGAIN){
                 break;
             }
-            diep("recv error");
+            diep("Fin recv error");
         }
     }
 }
-
-// void writeFile(char* filename, int highest_ack){
-//     FILE *fp;
-//     #ifdef _DEBUG
-//     cout << "Writing file..." << endl;
-//     #endif
-//     fp = fopen(filename, "wb");
-//     if (fp == NULL) {
-//         printf("Could not open file to send.");
-//         exit(1);
-//     }
-//     for(int i=0; i<=highest_ack; i++){
-//         segment *seg = buf[i];
-//         if(i < highest_ack){
-//             size_t ret_code = fwrite(seg->datagram, sizeof(char), MSS, fp);
-//             if ((int)ret_code <= 0){
-//                 break;
-//             }
-//         }else{
-//             int j=MSS;
-//             while(seg->datagram[j] == '\0'){
-//                 j--;
-//             }
-//             size_t ret_code = fwrite(seg->datagram, sizeof(char), j+1, fp);
-//             if ((int)ret_code <= 0){
-//                 break;
-//             }
-//         }
-//     }
-//     fclose(fp);
-//     return;
-// }
 
 void writeFile(int seq){
     //append to existing file every time
@@ -109,6 +79,7 @@ void writeFile(int seq){
     if ((int)ret_code <= 0){
         return;
     }
+    total += ret_code;
     return;
 }
 
@@ -120,7 +91,6 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
         printf("Could not open file to send.");
         exit(1);
     }
-
 
     slen = sizeof (si_other);
 
@@ -149,7 +119,7 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
 
         int numbytes = recvfrom(s, package, sizeof(*package), 0, (struct sockaddr*)&si_other, &slen);
         #ifdef _DEBUG
-        cout << "Received Bytes: " << numbytes << endl;
+        // cout << "Received Bytes: " << numbytes << endl;
         #endif
         if(numbytes == -1){
             diep("recv error");
@@ -196,18 +166,20 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
         #ifdef _DEBUG
         cout << "expected_ack: " << expected_ack << endl;
         cout << "highest_ack: " << highest_ack << endl;
+        cout << endl;
         #endif
     }
-        
+
     closeConnection();
     #ifdef _DEBUG
     cout << "Connection close" << endl;
     #endif
-    //writeFile(destinationFile, highest_ack, true);
+    
+    cout << "Total bytes write: " << total << endl;
 
     close(s);
     fclose(fp);
-    printf("%s received.", destinationFile);
+    // printf("%s received.", destinationFile);
     return;
 }
 
@@ -215,7 +187,7 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
  * 
  */
 int main(int argc, char** argv) {
-
+    // clock_t start = clock();
     unsigned short int udpPort;
 
     if (argc != 3) {
@@ -225,5 +197,9 @@ int main(int argc, char** argv) {
 
     udpPort = (unsigned short int) atoi(argv[1]);
     reliablyReceive(udpPort, argv[2]);
+    // clock_t end = clock();
+    // double cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    // printf("for loop took %f seconds to execute \n", cpu_time_used);
+    return 0;
 }
 

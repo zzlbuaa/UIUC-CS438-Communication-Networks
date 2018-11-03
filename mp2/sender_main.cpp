@@ -24,6 +24,10 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <time.h>
+#include <queue>
+#include <unordered_map>
+#include <semaphore.h>
 
 using namespace std;
 
@@ -31,242 +35,269 @@ using namespace std;
 #define SS 0
 #define CA 1
 #define FR 2
-#define SS_CW 80
+#define SS_CW 100
 
+#define _DEBUG
 
 typedef struct sharedData{
-    int timeout = 50;
+    int timeout = 5;
     int dupAcksCount = 0;
     int threshold = 100;
-    double CW = 80;
-    int mode = SS; //SS
+    double CW = 100;
+    int mode = SS;
     int sendBase = 0;
     long int timer = 0;
     int currIdx = 0;
     bool complete = false;
-    pthread_mutex_t mutex;
+    // pthread_mutex_t mutex;
+    sem_t sem;
 }shared_data;
 
 typedef struct Segment{
-    short seq_num;
+    long seq_num;
     short len;
-    char datagram[MSS+1];
+    char datagram[MSS];
 }segment;
 
-vector<segment> buffer;
+unordered_map<int, segment*> buffer;
 int package_total;
 
-
 shared_data data;
-
 struct sockaddr_in si_other;
-//struct sockaddr_in receiver_addr;
 int s;
 socklen_t addrlen = sizeof(si_other);
-long int FIN_timer;
 
 void readFile(char* filename, unsigned long long int numBytes);
-void writeFileTest(char* filename);
 
 void diep(const char *s) {
     perror(s);
     exit(1);
 }
 
-void* FIN_WATCH(void *id){
-    struct timeval tp;
-    segment seg;
-    memset((char*)&seg, 0, sizeof(seg));
-    seg.seq_num = -1;
-    while(true){
-        gettimeofday(&tp, NULL);
-        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        if(ms - FIN_timer > data.timeout){
-            if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
-                diep("send error");
-            }
-            gettimeofday(&tp, NULL);
-            FIN_timer = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+
+void closeConnection(){
+    #ifdef _DEBUG
+    cout << "Prepare for closing..." << endl;
+    #endif
+    for(int i=0; i<5; i++){
+        int fin_sig = -1;
+        // int ack_sig;
+        if(sendto(s, &fin_sig, sizeof(fin_sig), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
+            diep("FIN sending error");
         }
     }
 }
 
-void FIN(){
-    struct timeval tp;
 
-    segment seg;
-    memset((char*)&seg, 0, sizeof(seg));
-    seg.seq_num = -1;
-    int ack_sig = 0;
+// void* watchDog(void *id){
+//     #ifdef _DEBUG
+//     cout << "watchDog running..." << endl;
+//     #endif
+//     struct timeval tp;
+//     while(true){
+//         if(data.complete){
+//             return NULL;
+//         }
 
-    while(true){
-        if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
-            diep("send error");
-        }
-        gettimeofday(&tp, NULL);
-        FIN_timer = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        pthread_t FIN_t;
-        pthread_create(&FIN_t, NULL, &FIN_WATCH, NULL);
-        
-        int numbytes = recvfrom(s, &ack_sig, sizeof(ack_sig), 0, (struct sockaddr *)&si_other, &addrlen);
-        cout << "ack_sig: " << ack_sig << endl;
-        if(numbytes == -1){
-            diep("fin recv error");
-        }
+//         // pthread_mutex_lock(&(data.mutex));
+//         sem_wait(&data.sem);
 
-        if(ack_sig != -1){
-            int status = pthread_cancel(FIN_t);                                     
-            if (status <  0) {                                                            
-               diep("kill error");
-            }
-            pthread_join(FIN_t, NULL);
-            continue;
-        }
+//         gettimeofday(&tp, NULL);
+//         long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 
-        int status = pthread_cancel(FIN_t);                                     
-        if (status <  0) {                                                            
-           diep("kill error");
-        }
-        pthread_join(FIN_t, NULL);
-        break;
-    }
-    return;
-}
+//         if(ms - data.timer > data.timeout){
+//             int base = data.sendBase;
+//             #ifdef _DEBUG
+//             cout << "Timeout: " << base << endl;
+//             #endif
+//             // retrans pkt
+//             // segment seg = buffer[data.sendBase];
 
-void* watchDog(void *id){
-    cout << "watchDog running..." << endl;
-    struct timeval tp;
-    while(true){
-        pthread_mutex_lock(&(data.mutex));
-        if(data.complete){
-            pthread_mutex_unlock(&(data.mutex));
-            return NULL;
-        }
-        gettimeofday(&tp, NULL);
-        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        if(ms - data.timer > data.timeout){
-            cout << "time out" << endl;
-            // retrans pkt
-            segment seg = buffer[data.sendBase];
-            if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
-                pthread_mutex_unlock(&(data.mutex));
-                const string msg = "send error";
-                diep(msg.c_str());
-            }
-            data.timer = ms; // update timer
-            data.threshold = data.CW / 2;
-            data.CW = SS_CW;
-            //data.CW -= 1;
-            data.dupAcksCount = 0;
-            data.mode = SS;
-        }
-        pthread_mutex_unlock(&(data.mutex));
-    }
-}
+//             data.timer = ms; // update timer
+//             data.threshold = data.CW / 2;
+//             data.CW = 100;
+//             data.dupAcksCount = 0;
+//             data.mode = SS;
+//             packetsQueuing.push_back(base);
 
-void* receiveAck(void *id){
+//             // if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
+//             //     // pthread_mutex_unlock(&(data.mutex));
+//             //     diep("Timeout retransmission error");
+//             // }
+//         }
+//         // pthread_mutex_unlock(&(data.mutex));
+//         sem_post(&data.sem);
+//     }
+// }
+
+void* receiveAck(void*){
+    #ifdef _DEBUG
     cout << "receiveAck running..." << endl;
-    int c;
+    #endif
     struct timeval tp;
+    int ack_sig;
+    tp.tv_sec = 0;
+    tp.tv_usec = data.timeout * 1000;
+    int ret = setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tp, sizeof(tp));
+    if(ret == -1){
+        diep("Set timeout error");
+    }
+
     while(true){
-        int numbytes = recvfrom(s, &c, sizeof(c), 0, (struct sockaddr *)&si_other, &addrlen);
-        cout << "ack received, ack_sig:" << c << endl;
+
+        int numbytes = recvfrom(s, &ack_sig, sizeof(ack_sig), 0, (struct sockaddr *)&si_other, &addrlen);
+
+        if(numbytes == -1){
+            if(errno == EAGAIN){
+                #ifdef _DEBUG
+                cout << "Timeout" << endl;
+                #endif
+
+                // data.threshold = data.CW / 2;
+                data.threshold = data.CW * 0.70;
+                data.dupAcksCount = 0;
+                data.mode = SS;
+                sem_wait(&data.sem);
+                data.CW = SS_CW;
+                sem_post(&data.sem);
+
+                segment *seg = buffer[data.sendBase];
+                if(sendto(s, seg, sizeof(*seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
+                    diep("Sending error");
+                }
+
+                #ifdef _DEBUG
+                cout << "Resend: " << data.sendBase << endl;
+                #endif
+
+                continue;
+            }else{
+                diep("Fin recv error");
+            }
+        }
+
+        #ifdef _DEBUG
+        cout << "ack received, ack_sig:" << ack_sig << endl;
+        #endif
+
         if(numbytes > 0){
-            pthread_mutex_lock(&(data.mutex));
-            int ack_sig = c;
             if(ack_sig == package_total-1){
                 // finish trans
-                cout << "Prepare for FIN" << endl;
+                #ifdef _DEBUG
+                cout << "Received last ack..." << endl;
+                #endif
                 data.complete = true;
-                pthread_mutex_unlock(&(data.mutex));
                 return NULL;
             } 
-            cout << "ack#: " << ack_sig << endl;
+
             switch(data.mode){
                 case SS: {
                     if(ack_sig >= data.sendBase){
-                        // update window base, reset timer, 
-                        data.sendBase = ack_sig+1;
-                        gettimeofday(&tp, NULL);
-                        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-                        data.timer = ms;
+                        // update window base, reset timer
                         data.dupAcksCount = 0;
+                        sem_wait(&data.sem);
+                        data.sendBase = ack_sig+1;
                         data.CW += 1;
-                        cout << "SS: CW:" << data.CW << endl;
+                        sem_post(&data.sem);
+
                         if(data.CW >= data.threshold){
                             data.mode = CA;
                         }
+                        cout << "update base" << endl;
+                        
                     }else{
-                        if(ack_sig == data.sendBase-1){
+
+                        if(++(data.dupAcksCount) == 3){
                             // fast retransmission
-                            data.dupAcksCount++;
-                            if(data.dupAcksCount == 3){
-                                // retran
-                                cout << "3 dup" << endl;
-                                segment seg = buffer[data.sendBase-1];
-                                if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
-                                    pthread_mutex_unlock(&(data.mutex));
-                                    diep("send error");
-                                }
-                                data.mode = FR;
-                                data.threshold = data.CW / 2;
-                                data.CW = data.threshold + 3;
+                            #ifdef _DEBUG
+                            cout << "Received 3 dups" << endl;
+                            #endif
+                            data.mode = FR;
+                            // data.threshold = data.CW / 2;
+                            data.threshold = data.CW * 0.70;
+                            sem_wait(&data.sem);
+                            data.CW = data.threshold + 3;
+                            sem_post(&data.sem);
+                            segment *seg = buffer[data.sendBase];
+                            if(sendto(s, seg, sizeof(*seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
+                                diep("Sending error");
                             }
+                            #ifdef _DEBUG
+                            cout << "Resend: " << data.sendBase << endl;
+                            #endif
                         }
                     }
                     break;
                 }
                 case CA: {
+                    // Congestion Avoidance mode
                     if(ack_sig >= data.sendBase){
-                        // update window base, reset timer, 
-                        data.sendBase = ack_sig+1;
-                        gettimeofday(&tp, NULL);
-                        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-                        data.timer = ms;
+                        // update window base, reset timer
                         data.dupAcksCount = 0;
+
+                        sem_wait(&data.sem);
+                        data.sendBase = ack_sig + 1;
                         data.CW = data.CW + 1.0 / int(data.CW);
-                        cout << "CA: CW:" << data.CW << endl;
+                        sem_post(&data.sem);
+                        cout << "update base" << endl;
+
                     }else{
-                        if(ack_sig == data.sendBase-1){
-                            data.dupAcksCount++;
-                            if(data.dupAcksCount == 3){
-                                data.mode = FR;
-                                // fast retrans
-                                cout << "3 dup" << endl;
-                                segment seg = buffer[data.sendBase-1];
-                                if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
-                                    pthread_mutex_unlock(&(data.mutex));
-                                    diep("send error");
-                                }
-                                data.threshold = data.CW / 2;
-                                data.CW = data.threshold + 3;
+                        if(++(data.dupAcksCount) == 3){
+                            data.mode = FR;
+                            // data.threshold = data.CW / 2;
+                            data.threshold = data.CW * 0.70;
+                            sem_wait(&data.sem);
+                            data.CW = data.threshold + 3;
+                            sem_post(&data.sem);
+
+                            #ifdef _DEBUG
+                            cout << "Received 3 dups" << endl;
+                            #endif
+
+                            segment *seg = buffer[data.sendBase];
+                            if(sendto(s, seg, sizeof(*seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
+                                diep("Sending error");
                             }
+                            #ifdef _DEBUG
+                            cout << "Resend: " << data.sendBase << endl;
+                            #endif
                         }
                     }
                     break;
                 }
 
                 case FR: {
+                    // Fast Recover mode
                     if(ack_sig >= data.sendBase){
                         // update window base, reset timer, 
-                        data.sendBase = ack_sig+1;
-                        gettimeofday(&tp, NULL);
-                        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-                        data.timer = ms;
-                        data.dupAcksCount = 0;
+                        sem_wait(&data.sem);
+                        data.sendBase = ack_sig + 1;
                         data.CW = data.threshold;
+                        sem_post(&data.sem);
+                        data.dupAcksCount = 0;                        
                         data.mode = CA;
+                        cout << "update base" << endl;
                     }else{
+                        sem_wait(&data.sem);
                         data.CW += 1;
-                        cout << "FR: CW:" << data.CW << endl;
+                        sem_post(&data.sem);
                         data.dupAcksCount++;
+
+                        if(data.dupAcksCount % 2 == 0){
+                            segment *seg = buffer[data.sendBase];
+                            if(sendto(s, seg, sizeof(*seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
+                                diep("Sending error");
+                            }
+                            #ifdef _DEBUG
+                            cout << "Resend: " << data.sendBase << endl;
+                            #endif
+                        }
                     }
                     break;
                 }
                 default:
                     break;
             }
-            pthread_mutex_unlock(&(data.mutex));
         }
     }
 }
@@ -274,16 +305,19 @@ void* receiveAck(void *id){
 
 void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* filename, unsigned long long int bytesToTransfer) {
     //Open the file
-    // struct sockaddr_in si_other;
-   
+    int res = sem_init(&data.sem, 0, 1);
+    if(res == -1)
+    {
+        perror("Semaphore intitialization failed\n");
+        exit(EXIT_FAILURE);
+    }
+
     // read file into buffer
     readFile(filename, bytesToTransfer);
     if(package_total < 0){
         cout << "No packages" << endl;
         return;
     }
-    //writeFileTest("output");
-    //return;
 
     if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
         diep("socket");
@@ -296,32 +330,47 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         fprintf(stderr, "inet_aton() failed\n");
         exit(1);
     }
+
     pthread_t t_a;
-    pthread_t t_b;
-    pthread_create(&t_a, NULL, &receiveAck, NULL);
-    pthread_create(&t_b, NULL, &watchDog, NULL);
+    // pthread_t t_b;
+
+    #ifdef _DEBUG
     cout << "Sending..." << endl;
+    #endif
+    clock_t start = clock();
     while(true){
-        pthread_mutex_lock(&(data.mutex));
+
         if(data.complete){
-            // prepare for closing connection
-            pthread_mutex_unlock(&(data.mutex));
             break;
         }
 
-        if(data.currIdx < package_total && data.currIdx < data.sendBase + (int)data.CW){
-            segment seg = buffer[data.currIdx];
-            if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
-                pthread_mutex_unlock(&(data.mutex));
-                diep("send error");
+        sem_wait(&data.sem);
+        int upper = data.sendBase + (int)data.CW;
+        sem_post(&data.sem);
+        
+        while(data.currIdx < package_total && data.currIdx < upper){
+            segment *seg = buffer[data.currIdx];
+            if(sendto(s, seg, sizeof(*seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
+                diep("Sending error");
             }
-            data.currIdx++;
-            cout << "Send: " << data.currIdx << endl;
-        }
-        pthread_mutex_unlock(&(data.mutex));
-    }
 
-    FIN();
+            data.currIdx++;
+
+            if(data.currIdx == 1){
+                pthread_create(&t_a, NULL, &receiveAck, NULL);
+            }
+
+            #ifdef _DEBUG
+            cout << "Send: " << data.currIdx << endl;
+            #endif
+        }
+    }
+    
+    closeConnection();
+
+    clock_t end = clock();
+    double cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("File transfer took %f seconds to execute \n", cpu_time_used);
 
     /* Send data and receive acknowledgements on s*/
     printf("Closing the socket\n");
@@ -338,28 +387,26 @@ void readFile(char* filename, unsigned long long int numBytes){
         perror("fopen error:");
         return;
     }
-    int i = 0;
+
+    unsigned long long int i = 0;
     int count = 0;
-    char c;
     package_total = ceil(double(numBytes) / double(MSS));
     while(!feof(fp) && i < numBytes) {
-        segment seg;
-        memset((char*)&seg, 0, sizeof(seg));
-        seg.seq_num = count;
-        size_t ret_code = fread(seg.datagram, sizeof(char), MSS, fp);
+        segment *seg = new segment;
+        memset((char*)seg, 0, sizeof(*seg));
+        seg->seq_num = count;
+        size_t ret_code = fread(seg->datagram, sizeof(char), MSS, fp);
         if(ret_code <= 0) {
             printf("finish reading.\n");
             break;
         } else if(ret_code == MSS){ // error handling
-            seg.datagram[MSS] = '\0';
-            seg.len = MSS;
+            seg->len = MSS;
             i += MSS;
         } else {
             i += (int)ret_code;
-            seg.len = (int)ret_code;
-            seg.datagram[(int)ret_code] = '\0';
+            seg->len = (int)ret_code;
         }
-        buffer.push_back(seg);
+        buffer[count] = seg;
         count++;
     }
     #ifdef _DEBUG
@@ -368,26 +415,6 @@ void readFile(char* filename, unsigned long long int numBytes){
     fclose(fp);
     return;
 }
-
-void writeFileTest(char* filename){
-    FILE *fp;
-    fp = fopen(filename, "wb");
-    if (fp == NULL) {
-        printf("Could not open file to send.");
-        exit(1);
-    }
-    cout << "buffer size: " << buffer.size() << endl;
-    for(int i=0; i<buffer.size(); i++){
-        segment seg = buffer[i];
-        size_t ret_code = fwrite(seg.datagram, sizeof(char), MSS, fp);
-        if ((int)ret_code <= 0){
-            break;
-        }
-    }
-    fclose(fp);
-    return;
-}
-
 
 
 int main(int argc, char** argv) {
@@ -402,11 +429,10 @@ int main(int argc, char** argv) {
     udpPort = (unsigned short int) atoi(argv[2]);
     numBytes = atoll(argv[4]);
 
-    data.mutex = PTHREAD_MUTEX_INITIALIZER;
+    // data.mutex = PTHREAD_MUTEX_INITIALIZER;
 
     reliablyTransfer(argv[1], udpPort, argv[3], numBytes);
 
     return (EXIT_SUCCESS);
 }
-
 
