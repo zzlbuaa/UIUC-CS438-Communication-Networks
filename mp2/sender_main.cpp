@@ -37,10 +37,12 @@ using namespace std;
 #define FR 2
 #define SS_CW 100
 
+#define CW_DEC_FACTOR 0.5
+
 #define _DEBUG
 
 typedef struct sharedData{
-    int timeout = 5;
+    int timeout = 3;
     int dupAcksCount = 0;
     int threshold = 100;
     double CW = 100;
@@ -66,6 +68,7 @@ shared_data data;
 struct sockaddr_in si_other;
 int s;
 socklen_t addrlen = sizeof(si_other);
+int nums = 0;
 
 void readFile(char* filename, unsigned long long int numBytes);
 
@@ -88,48 +91,6 @@ void closeConnection(){
     }
 }
 
-
-// void* watchDog(void *id){
-//     #ifdef _DEBUG
-//     cout << "watchDog running..." << endl;
-//     #endif
-//     struct timeval tp;
-//     while(true){
-//         if(data.complete){
-//             return NULL;
-//         }
-
-//         // pthread_mutex_lock(&(data.mutex));
-//         sem_wait(&data.sem);
-
-//         gettimeofday(&tp, NULL);
-//         long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-
-//         if(ms - data.timer > data.timeout){
-//             int base = data.sendBase;
-//             #ifdef _DEBUG
-//             cout << "Timeout: " << base << endl;
-//             #endif
-//             // retrans pkt
-//             // segment seg = buffer[data.sendBase];
-
-//             data.timer = ms; // update timer
-//             data.threshold = data.CW / 2;
-//             data.CW = 100;
-//             data.dupAcksCount = 0;
-//             data.mode = SS;
-//             packetsQueuing.push_back(base);
-
-//             // if(sendto(s, &seg, sizeof(seg), 0, (struct sockaddr *)&si_other, sizeof(si_other)) == -1){
-//             //     // pthread_mutex_unlock(&(data.mutex));
-//             //     diep("Timeout retransmission error");
-//             // }
-//         }
-//         // pthread_mutex_unlock(&(data.mutex));
-//         sem_post(&data.sem);
-//     }
-// }
-
 void* receiveAck(void*){
     #ifdef _DEBUG
     cout << "receiveAck running..." << endl;
@@ -144,6 +105,15 @@ void* receiveAck(void*){
     }
 
     while(true){
+        sem_wait(&data.sem);
+        if(nums > 10000){
+            nums = 0;
+            data.CW = 100;
+            data.threshold = 100;
+            data.mode = SS;
+        }
+        sem_post(&data.sem);
+
 
         int numbytes = recvfrom(s, &ack_sig, sizeof(ack_sig), 0, (struct sockaddr *)&si_other, &addrlen);
 
@@ -152,9 +122,8 @@ void* receiveAck(void*){
                 #ifdef _DEBUG
                 cout << "Timeout" << endl;
                 #endif
-
                 // data.threshold = data.CW / 2;
-                data.threshold = data.CW * 0.50;
+                data.threshold = data.CW * CW_DEC_FACTOR;
                 data.dupAcksCount = 0;
                 data.mode = SS;
                 sem_wait(&data.sem);
@@ -214,7 +183,7 @@ void* receiveAck(void*){
                             #endif
                             data.mode = FR;
                             // data.threshold = data.CW / 2;
-                            data.threshold = data.CW * 0.50;
+                            data.threshold = data.CW * CW_DEC_FACTOR;
                             sem_wait(&data.sem);
                             data.CW = data.threshold + 3;
                             sem_post(&data.sem);
@@ -245,7 +214,7 @@ void* receiveAck(void*){
                         if(++(data.dupAcksCount) == 3){
                             data.mode = FR;
                             // data.threshold = data.CW / 2;
-                            data.threshold = data.CW * 0.50;
+                            data.threshold = data.CW * CW_DEC_FACTOR;
                             sem_wait(&data.sem);
                             data.CW = data.threshold + 3;
                             sem_post(&data.sem);
@@ -355,6 +324,10 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
             }
 
             data.currIdx++;
+
+            sem_wait(&data.sem);
+            nums++;
+            sem_post(&data.sem);
 
             if(data.currIdx == 1){
                 pthread_create(&t_a, NULL, &receiveAck, NULL);
