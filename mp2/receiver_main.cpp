@@ -19,6 +19,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <time.h>
+#include <semaphore.h>
 
 using namespace std;
 
@@ -32,20 +33,32 @@ typedef struct Segment{
     char datagram[MSS];
 }segment;
 
-unordered_map<int,segment*> buf;
+
+
+typedef struct sharedData {
+    unordered_map<int,segment*> buf;
+    bool FIN = false;
+    sem_t sem;
+    int expected_ack = 0;
+}shared_data;
+shared_data data;
+pthread_t t_write;
+
+bool WRITE_FIN = false;
+
 
 struct sockaddr_in si_me, si_other;
 
 int s; 
 socklen_t slen;
 FILE *fp;
+char* filename;
 
 void diep(char *s) {
     perror(s);
     exit(1);
 }
 
-long total = 0;
 
 void closeConnection(){
     #ifdef _DEBUG
@@ -73,24 +86,58 @@ void closeConnection(){
 
 void writeFile(int seq){
     //append to existing file every time
-    segment *seg = buf[seq];
-
-    size_t ret_code = fwrite(seg->datagram, sizeof(char), seg->len, fp);
-    if ((int)ret_code <= 0){
+    if (seq < 0) {
         return;
-    }
-    total += ret_code;
-    return;
-}
+    } 
+    segment *seg = data.buf[seq];
+    char dataToWrite[seg->len];
+    int length = seg->len;
+    //cout << "length: " << length << endl;
+    memcpy(dataToWrite,seg->datagram,length);
 
-void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
-    
-    remove(destinationFile);
-    fp = fopen(destinationFile, "ab");
     if (fp == NULL) {
         printf("Could not open file to send.");
         exit(1);
     }
+    //sem_wait(&data.sem);
+    size_t ret_code = fwrite(dataToWrite, sizeof(char), length, fp);
+    //cout << "ret_code: " << ret_code << endl;
+    //sem_post(&data.sem);
+    if ((int)ret_code <= 0){
+        cout << "writing file failed." << endl;
+        WRITE_FIN = true;
+    }
+    return;
+}
+
+void* writeBuf(void *id){
+    fp = fopen(filename, "ab");
+    if (fp == NULL) {
+        printf("Could not open file to send.");
+        exit(1);
+    }
+    #ifdef _DEBUG
+    cout << "writing the buf..." << endl;
+    #endif
+    int i = 0;
+    while(!data.FIN && !WRITE_FIN) {
+        //cout << "expected_ack: " << data.expected_ack << endl;
+        while(i < data.expected_ack && data.buf.count(i) > 0) {
+                // find next empty slot 
+            writeFile(i);
+            i++;
+        }
+    }
+    //cout << "fclose1..." << endl;
+    fclose(fp);
+    //cout << "fclose..." << endl;
+    pthread_exit(0);
+}
+
+void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
+    //remove destination file if exist
+    filename = destinationFile;
+    remove(filename);
 
     slen = sizeof (si_other);
 
@@ -105,15 +152,13 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
     if (bind(s, (struct sockaddr*) &si_me, sizeof (si_me)) == -1)
         diep("bind");
 
-    int expected_ack = 0;
     int highest_ack = 0;
-    bool FIN = false;
 
     /* Now receive data and send acknowledgements */    
     while(true){
         segment *package = new segment;
 
-        if(FIN && expected_ack > highest_ack){
+        if(data.FIN && data.expected_ack > highest_ack){
             break;
         }
 
@@ -131,54 +176,68 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
         cout << "Received: " << seq_num << endl;
         #endif
         if(seq_num == -1){
-            FIN = true;
-            if(expected_ack > highest_ack){
+            sem_wait(&data.sem);
+            data.FIN = true;
+            sem_post(&data.sem);
+            if(data.expected_ack > highest_ack){
                 break;
             }
         }else{
             highest_ack = max(seq_num, highest_ack);
-            buf[seq_num] = package;
+            sem_wait(&data.sem);
+            data.buf[seq_num] = package;
+            sem_post(&data.sem);
         }
 
-        if(seq_num == expected_ack){
-            writeFile(expected_ack);
-            int i = expected_ack+1;
-            while(buf.count(i) > 0){
+        if(seq_num == data.expected_ack){
+
+            //writeFile(expected_ack);
+            int i = data.expected_ack+1;
+            while(data.buf.count(i) > 0){
                 // find next empty slot 
-                writeFile(i);
+                //writeFile(i);
                 i++;
             }
             
-
-            expected_ack = i;
-            int reply_ack = expected_ack-1;
+            sem_wait(&data.sem);
+            data.expected_ack = i;
+            sem_post(&data.sem);
+            int reply_ack = data.expected_ack-1;
             // reply with ack
             if(sendto(s, &reply_ack, sizeof(reply_ack), 0, (struct sockaddr *)&si_other, slen) == -1){
                 diep("send error");
             }
         }else{
-            int reply_ack = expected_ack-1;
+            int reply_ack = data.expected_ack-1;
             // reply with dup Acks
             if(sendto(s, &reply_ack, sizeof(reply_ack), 0, (struct sockaddr *)&si_other, slen) == -1){
                 diep("send error");
             }
         }
         #ifdef _DEBUG
-        cout << "expected_ack: " << expected_ack << endl;
+        cout << "expected_ack: " << data.expected_ack << endl;
         cout << "highest_ack: " << highest_ack << endl;
-        cout << endl;
         #endif
     }
+
+    // void *res;
+        
+    // s = pthread_join(t_write, &res);
+    // if (s != 0)
+    //     diep("pthread_join");
+ 
+    // if (res == PTHREAD_CANCELED)
+    //     printf("main(): thread 1 was canceled\n");
+    // else
+    //     printf("main(): thread 1 wasn't canceled (shouldn't happen!)\n");
 
     closeConnection();
     #ifdef _DEBUG
     cout << "Connection close" << endl;
     #endif
-    
-    cout << "Total bytes write: " << total << endl;
 
     close(s);
-    fclose(fp);
+    //fclose(fp);
     // printf("%s received.", destinationFile);
     return;
 }
@@ -196,10 +255,19 @@ int main(int argc, char** argv) {
     }
 
     udpPort = (unsigned short int) atoi(argv[1]);
+
+    int res = sem_init(&data.sem, 0, 1);
+    if(res == -1)
+    {
+        perror("Semaphore intitialization failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    pthread_create(&t_write, NULL, &writeBuf, NULL);
     reliablyReceive(udpPort, argv[2]);
     // clock_t end = clock();
     // double cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     // printf("for loop took %f seconds to execute \n", cpu_time_used);
-    return 0;
+    pthread_exit(0);
 }
 
