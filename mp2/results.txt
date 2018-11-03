@@ -7,12 +7,12 @@ test results:
   drop rate=0.25 succeeded!
 -10:  quick convergence failed: failed to send 20MB in 20s (receiver wrote 20001300 bytes)
 
- TCP friendliness succeeded! (TCP got 38.8 Mbps)
- TCP friendliness with 1% loss succeeded! (TCP got 35.1 Mbps)
+ TCP friendliness succeeded! (TCP got 38.6 Mbps)
+ TCP friendliness with 1% loss succeeded! (TCP got 38.2 Mbps)
   competition vs TCP succeeded!
 ====================
 
-version:13
+version:15
 score: 90/100
 all-time best score (your current grade): 90/100
 
