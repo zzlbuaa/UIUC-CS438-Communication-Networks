@@ -35,13 +35,11 @@ typedef struct Segment{
 
 
 
-typedef struct sharedData {
-    unordered_map<int,segment*> buf;
-    bool FIN = false;
-    sem_t sem;
-    int expected_ack = 0;
-}shared_data;
-shared_data data;
+
+unordered_map<int,segment*> buf;
+bool FIN = false;
+sem_t sem;
+int expected_ack = 0;
 pthread_t t_write;
 
 bool WRITE_FIN = false;
@@ -89,10 +87,10 @@ void writeFile(int seq){
     if (seq < 0) {
         return;
     } 
-    segment *seg = data.buf[seq];
+    segment *seg = buf[seq];
     char dataToWrite[seg->len];
     int length = seg->len;
-    //cout << "length: " << length << endl;
+    cout << "length: " << length << endl;
     memcpy(dataToWrite,seg->datagram,length);
 
     if (fp == NULL) {
@@ -101,7 +99,7 @@ void writeFile(int seq){
     }
     //sem_wait(&data.sem);
     size_t ret_code = fwrite(dataToWrite, sizeof(char), length, fp);
-    //cout << "ret_code: " << ret_code << endl;
+    cout << "ret_code: " << ret_code << endl;
     //sem_post(&data.sem);
     if ((int)ret_code <= 0){
         cout << "writing file failed." << endl;
@@ -120,17 +118,17 @@ void* writeBuf(void *id){
     cout << "writing the buf..." << endl;
     #endif
     int i = 0;
-    while(!data.FIN && !WRITE_FIN) {
+    while(!FIN && !WRITE_FIN) {
         //cout << "expected_ack: " << data.expected_ack << endl;
-        while(i < data.expected_ack && data.buf.count(i) > 0) {
+        while(i < expected_ack && buf.count(i) > 0) {
                 // find next empty slot 
             writeFile(i);
             i++;
         }
     }
-    //cout << "fclose1..." << endl;
+    cout << "fclose1..." << endl;
     fclose(fp);
-    //cout << "fclose..." << endl;
+    cout << "fclose..." << endl;
     pthread_exit(0);
 }
 
@@ -158,7 +156,7 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
     while(true){
         segment *package = new segment;
 
-        if(data.FIN && data.expected_ack > highest_ack){
+        if(FIN && expected_ack > highest_ack){
             break;
         }
 
@@ -176,46 +174,46 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
         cout << "Received: " << seq_num << endl;
         #endif
         if(seq_num == -1){
-            sem_wait(&data.sem);
-            data.FIN = true;
-            sem_post(&data.sem);
-            if(data.expected_ack > highest_ack){
+            sem_wait(&sem);
+            FIN = true;
+            sem_post(&sem);
+            if(expected_ack > highest_ack){
                 break;
             }
         }else{
             highest_ack = max(seq_num, highest_ack);
-            sem_wait(&data.sem);
-            data.buf[seq_num] = package;
-            sem_post(&data.sem);
+            sem_wait(&sem);
+            buf[seq_num] = package;
+            sem_post(&sem);
         }
 
-        if(seq_num == data.expected_ack){
+        if(seq_num == expected_ack){
 
             //writeFile(expected_ack);
-            int i = data.expected_ack+1;
-            while(data.buf.count(i) > 0){
+            int i = expected_ack+1;
+            while(buf.count(i) > 0){
                 // find next empty slot 
                 //writeFile(i);
                 i++;
             }
             
-            sem_wait(&data.sem);
-            data.expected_ack = i;
-            sem_post(&data.sem);
-            int reply_ack = data.expected_ack-1;
+            sem_wait(&sem);
+            expected_ack = i;
+            sem_post(&sem);
+            int reply_ack = expected_ack-1;
             // reply with ack
             if(sendto(s, &reply_ack, sizeof(reply_ack), 0, (struct sockaddr *)&si_other, slen) == -1){
                 diep("send error");
             }
         }else{
-            int reply_ack = data.expected_ack-1;
+            int reply_ack = expected_ack-1;
             // reply with dup Acks
             if(sendto(s, &reply_ack, sizeof(reply_ack), 0, (struct sockaddr *)&si_other, slen) == -1){
                 diep("send error");
             }
         }
         #ifdef _DEBUG
-        cout << "expected_ack: " << data.expected_ack << endl;
+        cout << "expected_ack: " << expected_ack << endl;
         cout << "highest_ack: " << highest_ack << endl;
         #endif
     }
@@ -256,7 +254,7 @@ int main(int argc, char** argv) {
 
     udpPort = (unsigned short int) atoi(argv[1]);
 
-    int res = sem_init(&data.sem, 0, 1);
+    int res = sem_init(&sem, 0, 1);
     if(res == -1)
     {
         perror("Semaphore intitialization failed\n");
@@ -270,4 +268,3 @@ int main(int argc, char** argv) {
     // printf("for loop took %f seconds to execute \n", cpu_time_used);
     pthread_exit(0);
 }
-
