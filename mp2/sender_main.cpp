@@ -37,7 +37,7 @@ using namespace std;
 #define FR 2
 #define SS_CW 100
 
-#define CW_DEC_FACTOR 0.5
+#define CW_DEC_FACTOR 0.4
 
 #define _DEBUG
 
