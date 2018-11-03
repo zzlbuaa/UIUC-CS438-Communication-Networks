@@ -8,11 +8,11 @@ test results:
 -10:  quick convergence failed: failed to send 20MB in 20s (receiver wrote 20001300 bytes)
 
  TCP friendliness succeeded! (TCP got 38.7 Mbps)
- TCP friendliness with 1% loss succeeded! (TCP got 33.7 Mbps)
+ TCP friendliness with 1% loss succeeded! (TCP got 40.9 Mbps)
   competition vs TCP succeeded!
 ====================
 
-version:16
+version:17
 score: 90/100
 all-time best score (your current grade): 90/100
 
