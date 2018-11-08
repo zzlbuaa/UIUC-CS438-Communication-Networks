@@ -22,7 +22,7 @@
 
 using namespace std;
 
-#define MSS 1450
+#define MSS 1280
 
 #define _DEBUG
 

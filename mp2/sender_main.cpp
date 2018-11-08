@@ -31,7 +31,7 @@
 
 using namespace std;
 
-#define MSS 1450
+#define MSS 1280
 #define SS 0
 #define CA 1
 #define FR 2
