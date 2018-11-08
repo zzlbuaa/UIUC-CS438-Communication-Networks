@@ -6,13 +6,13 @@ test results:
   drop rate=0.05 succeeded!
   drop rate=0.25 succeeded!
  quick convergence succeeded!
- TCP friendliness succeeded! (TCP got 39.4 Mbps)
--25: INFINITE LOOP DETECTED IN TEST 7 (indexed starting from 1)
- competition vs TCP succeeded!
+ TCP friendliness succeeded! (TCP got 38.3 Mbps)
+ TCP friendliness with 1% loss succeeded! (TCP got 26.9 Mbps)
+  competition vs TCP succeeded!
 ====================
 
-version:20
-score: 75/100
+version:21
+score: 100/100
 all-time best score (your current grade): 100/100
 
 
