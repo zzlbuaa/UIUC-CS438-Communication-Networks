@@ -5,14 +5,15 @@ test results:
  utilize empty link succeeded!
   drop rate=0.05 succeeded!
   drop rate=0.25 succeeded!
- quick convergence succeeded!
- TCP friendliness succeeded! (TCP got 38.3 Mbps)
- TCP friendliness with 1% loss succeeded! (TCP got 26.9 Mbps)
+-10:  quick convergence failed: newcomer flow didn't get 40% of your protocol's optimal-conditions bandwidth fast enough.
+
+ TCP friendliness succeeded! (TCP got 39.4 Mbps)
+ TCP friendliness with 1% loss succeeded! (TCP got 19.0 Mbps)
   competition vs TCP succeeded!
 ====================
 
-version:21
-score: 100/100
+version:22
+score: 90/100
 all-time best score (your current grade): 100/100
 
 
