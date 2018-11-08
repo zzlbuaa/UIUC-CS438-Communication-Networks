@@ -5,15 +5,14 @@ test results:
  utilize empty link succeeded!
   drop rate=0.05 succeeded!
   drop rate=0.25 succeeded!
--10:  quick convergence failed: newcomer flow didn't get 40% of your protocol's optimal-conditions bandwidth fast enough.
-
- TCP friendliness succeeded! (TCP got 33.9 Mbps)
- TCP friendliness with 1% loss succeeded! (TCP got 34.9 Mbps)
-  competition vs TCP succeeded!
+ quick convergence succeeded!
+ TCP friendliness succeeded! (TCP got 39.4 Mbps)
+-25: INFINITE LOOP DETECTED IN TEST 7 (indexed starting from 1)
+ competition vs TCP succeeded!
 ====================
 
-version:19
-score: 90/100
+version:20
+score: 75/100
 all-time best score (your current grade): 100/100
 
 
