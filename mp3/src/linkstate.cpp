@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <stdint.h>
 
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <map>
@@ -41,6 +42,7 @@ void readTopo(char* filename) {
 			ss >> node1;
 			ss >> node2;
 			ss >> cost;
+			//cout << node1 << " " << node2 << " " << cost << endl;
 			int node1_val = atoi(node1.c_str());
 			int node2_val = atoi(node2.c_str());
 			all_nodes.insert(node1_val);
@@ -63,7 +65,14 @@ void output_table() {
 	int num_nodes = all_nodes.size();
 	for (int i = 1; i <= num_nodes; i++) {
     	for (int j = 1; j <= num_nodes; j++) {
+    		if (all_nodes.count(i) <= 0 || all_nodes.count(j) <= 0) {
+    			continue;
+    		}
     		if (f_tables[i][j].second == INT_MAX) {
+    			continue;
+    		}
+    		if (i == j) {
+    			fprintf(fpout, "%d %d %d\n", j, j, 0);
     			continue;
     		}
     		fprintf(fpout, "%d %d %d\n", j, f_tables[i][j].first, f_tables[i][j].second);
@@ -94,7 +103,7 @@ void dijkstra() {
     			distances[v] = INT_MAX;
     		}
     		prev_nodes[v] = node;
-    		printf("node: %d, distance: %d\n", v, distances[v]);
+    		//printf("node: %d, distance: %d\n", v, distances[v]);
     	}
 
     	queue<int> min_nodes;
@@ -142,10 +151,10 @@ void dijkstra() {
     				prev_nodes[n_node] = min_node;
     			}
     		}
-    		for (int i = 1; i <= num_nodes; i++) {
-    			printf("prevnode: %d\n", prev_nodes[i]);
-    		}
-    		printf("node: %d, distance: %d\n", min_node, distances[min_node]);
+    		//for (int i = 1; i <= num_nodes; i++) {
+    		//	printf("prevnode: %d\n", prev_nodes[i]);
+    		//}
+    		//printf("node: %d, distance: %d\n", min_node, distances[min_node]);
     	}
 
     	unordered_map<int, pair<int, int> > f_table;
@@ -174,7 +183,9 @@ void output_message(int src, int dst, char* message) {
 
 	fpout = fopen("output.txt", "a");
 
-	if (f_tables[src][dst].second == INT_MAX) {
+	if (f_tables[src][dst].second == INT_MAX || 
+		all_nodes.count(src) <= 0 ||
+		all_nodes.count(dst) <=0) {
 		fprintf(fpout, "from %d to %d cost infinite hops unreachable message %s\n", src, dst, message);
 		return;//or continue
 	}
