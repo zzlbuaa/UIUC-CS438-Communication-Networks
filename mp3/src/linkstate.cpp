@@ -1,15 +1,15 @@
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
-#include<fstream>
-#include<vector>
-#include<map>
-#include<unordered_set>
-#include<unordered_map>
-#include<queue>
-#include<string>
-#include<sstream>
+#include <fstream>
+#include <vector>
+#include <map>
+#include <unordered_set>
+#include <unordered_map>
+#include <queue>
+#include <string>
+#include <sstream>
 
 using namespace std;
 
