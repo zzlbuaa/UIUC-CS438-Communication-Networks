@@ -20,12 +20,8 @@ test results:
 -5:  DV: 8 node topology failed
 ====================
 
-version:1
+version:4
 score: 0/100
 all-time best score (your current grade): 0/100
 
 
-Version 2:
-*******CHECK compiler_errors.txt FOR RESULTS!!!******
-Version 3:
-*******CHECK compiler_errors.txt FOR RESULTS!!!******
