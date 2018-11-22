@@ -1,151 +1,21 @@
-compilation of version 2 failed with:
+compilation of version 3 failed with:
 mkdir -p obj
-g++ -g -Wall -Wextra -Wno-sign-compare  -c -o obj/linkstate.o src/linkstate.cpp
-In file included from /usr/include/c++/5/unordered_set:35:0,
-                 from src/linkstate.cpp:8:
-/usr/include/c++/5/bits/c++0x_warning.h:32:2: error: #error This file requires compiler and library support for the ISO C++ 2011 standard. This support must be enabled with the -std=c++11 or -std=gnu++11 compiler options.
- #error This file requires compiler and library support \
-  ^
-src/linkstate.cpp:19:9: error: ‘unordered_map’ does not name a type
- typedef unordered_map<int, int> neighbors;
-         ^
-src/linkstate.cpp:20:9: error: ‘unordered_map’ does not name a type
- typedef unordered_map<int, neighbors > CostMap;
-         ^
-src/linkstate.cpp:25:1: error: ‘unordered_map’ does not name a type
- unordered_map<int, unordered_map<int, pair<int, int> > > f_tables;
- ^
-src/linkstate.cpp:27:1: error: ‘CostMap’ does not name a type
- CostMap costs;
- ^
-src/linkstate.cpp:28:1: error: ‘unordered_set’ does not name a type
- unordered_set<int> all_nodes;
- ^
-src/linkstate.cpp: In function ‘void readTopo(char*)’:
-src/linkstate.cpp:44:4: error: ‘all_nodes’ was not declared in this scope
-    all_nodes.insert(node1_val);
-    ^
-src/linkstate.cpp:47:4: error: ‘costs’ was not declared in this scope
-    costs[node1_val][node2_val] = atoi(cost.c_str());
-    ^
+g++ -std=c++1z -g -Wall -Wextra -Wno-sign-compare  -c -o obj/linkstate.o src/linkstate.cpp
 src/linkstate.cpp: In function ‘void output_table()’:
-src/linkstate.cpp:61:18: error: ‘all_nodes’ was not declared in this scope
-  int num_nodes = all_nodes.size();
-                  ^
-src/linkstate.cpp:64:11: error: ‘f_tables’ was not declared in this scope
-       if (f_tables[i][j].second == INT_MAX) {
-           ^
 src/linkstate.cpp:64:36: error: ‘INT_MAX’ was not declared in this scope
        if (f_tables[i][j].second == INT_MAX) {
                                     ^
-src/linkstate.cpp:67:39: error: ‘f_tables’ was not declared in this scope
-       fprintf(fpout, "%d %d %d\n", j, f_tables[i][j].first, f_tables[i][j].second);
-                                       ^
 src/linkstate.cpp: In function ‘void dijkstra()’:
-src/linkstate.cpp:75:18: error: ‘all_nodes’ was not declared in this scope
-  int num_nodes = all_nodes.size();
-                  ^
-src/linkstate.cpp:76:2: error: ‘f_tables’ was not declared in this scope
-  f_tables.clear();
-  ^
-src/linkstate.cpp:78:17: warning: range-based ‘for’ loops only available with -std=c++11 or -std=gnu++11
-  for (int node: all_nodes) {
-                 ^
-src/linkstate.cpp:81:6: error: ‘unordered_set’ was not declared in this scope
-      unordered_set<int> confirmed_nodes;
-      ^
-src/linkstate.cpp:81:20: error: expected primary-expression before ‘int’
-      unordered_set<int> confirmed_nodes;
-                    ^
-src/linkstate.cpp:82:6: error: ‘unordered_map’ was not declared in this scope
-      unordered_map<int, int> distances;
-      ^
-src/linkstate.cpp:82:20: error: expected primary-expression before ‘int’
-      unordered_map<int, int> distances;
-                    ^
-src/linkstate.cpp:83:20: error: expected primary-expression before ‘int’
-      unordered_map<int, int> prev_nodes;
-                    ^
-src/linkstate.cpp:85:6: error: ‘confirmed_nodes’ was not declared in this scope
-      confirmed_nodes.insert(node);
-      ^
-src/linkstate.cpp:87:18: warning: range-based ‘for’ loops only available with -std=c++11 or -std=gnu++11
-      for (int v: all_nodes) {
-                  ^
-src/linkstate.cpp:88:11: error: ‘costs’ was not declared in this scope
-       if (costs[node].count(v) > 0) {
-           ^
-src/linkstate.cpp:89:8: error: ‘distances’ was not declared in this scope
-        distances[v] = costs[node][v];
-        ^
-src/linkstate.cpp:91:8: error: ‘distances’ was not declared in this scope
-        distances[v] = INT_MAX;
-        ^
 src/linkstate.cpp:91:23: error: ‘INT_MAX’ was not declared in this scope
         distances[v] = INT_MAX;
                        ^
-src/linkstate.cpp:93:7: error: ‘prev_nodes’ was not declared in this scope
-       prev_nodes[v] = node;
-       ^
-src/linkstate.cpp:94:45: error: ‘distances’ was not declared in this scope
-       printf("node: %d, distance: %d\n", v, distances[v]);
-                                             ^
 src/linkstate.cpp:100:22: error: ‘INT_MAX’ was not declared in this scope
        int min_dist = INT_MAX;
                       ^
-src/linkstate.cpp:103:19: warning: range-based ‘for’ loops only available with -std=c++11 or -std=gnu++11
-       for (int v: all_nodes) {
-                   ^
-src/linkstate.cpp:107:12: error: ‘distances’ was not declared in this scope
-        if (distances[v] < min_dist) {
-            ^
-src/linkstate.cpp:112:12: error: ‘distances’ was not declared in this scope
-        if (distances[v] == min_dist) {
-            ^
-src/linkstate.cpp:122:37: warning: range-based ‘for’ loops only available with -std=c++11 or -std=gnu++11
-       for (pair<int, int> neighbor: costs[min_node]) {
-                                     ^
-src/linkstate.cpp:122:37: error: ‘costs’ was not declared in this scope
-src/linkstate.cpp:128:12: error: ‘distances’ was not declared in this scope
-        if (distances[min_node] != INT_MAX &&
-            ^
-src/linkstate.cpp:131:9: error: ‘prev_nodes’ was not declared in this scope
-         prev_nodes[n_node] = min_node;
-         ^
-src/linkstate.cpp:134:52: error: ‘distances’ was not declared in this scope
-       printf("node: %d, distance: %d\n", min_node, distances[min_node]);
-                                                    ^
-src/linkstate.cpp:137:20: error: expected primary-expression before ‘int’
-      unordered_map<int, pair<int, int> > f_table;
-                    ^
-src/linkstate.cpp:138:6: error: ‘f_table’ was not declared in this scope
-      f_table[node].first = node;
-      ^
-src/linkstate.cpp:143:11: error: ‘prev_nodes’ was not declared in this scope
-       if (prev_nodes[cur] == node) {
-           ^
-src/linkstate.cpp:145:30: error: ‘distances’ was not declared in this scope
-        f_table[cur].second = distances[cur];
-                              ^
-src/linkstate.cpp:148:30: error: ‘distances’ was not declared in this scope
-        f_table[cur].second = distances[cur];
-                              ^
 src/linkstate.cpp: In function ‘void output_message(int, int, char*)’:
-src/linkstate.cpp:162:6: error: ‘f_tables’ was not declared in this scope
-  if (f_tables[src][dst].second == INT_MAX) {
-      ^
 src/linkstate.cpp:162:35: error: ‘INT_MAX’ was not declared in this scope
   if (f_tables[src][dst].second == INT_MAX) {
                                    ^
-src/linkstate.cpp:171:14: error: ‘f_tables’ was not declared in this scope
-   curt_hop = f_tables[curt_hop][dst].first; 
-              ^
-src/linkstate.cpp:173:58: error: ‘f_tables’ was not declared in this scope
-  fprintf(fpout, "from %d to %d cost %d hops ", src, dst, f_tables[src][dst].second);
-                                                          ^
-src/linkstate.cpp:174:17: warning: range-based ‘for’ loops only available with -std=c++11 or -std=gnu++11
-  for (int hop : hops) {
-                 ^
 src/linkstate.cpp: In function ‘void send_message(char*)’:
 src/linkstate.cpp:194:60: warning: no closing ‘]’ for ‘%[’ format [-Wformat=]
     sscanf(line.c_str(), "%d %d %[^\0]", &src, &dst, message);
