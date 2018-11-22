@@ -202,6 +202,45 @@ void send_message(char* messagefile) {
 	}
 }
 
+void read_change(char* changefile, char* messagefile) {
+	ifstream in;
+	string line;
+	in.open(changefile);
+
+	if (in.is_open()) {
+		while (getline(in, line)) {
+			stringstream ss(line);
+			string node1, node2, cost;
+			ss >> node1;
+			ss >> node2;
+			ss >> cost;
+			int node1_val = atoi(node1.c_str());
+			int node2_val = atoi(node2.c_str());
+			int new_cost = atoi(cost.c_str());
+			if (new_cost == -999) {
+				costs[node1_val].erase(node2_val);
+				costs[node2_val].erase(node1_val);
+				if (costs.count(node1_val) <= 0) {
+					all_nodes.erase(node1_val);
+				}
+				if (costs.count(node2_val) <= 0) {
+					all_nodes.erase(node2_val);
+				}
+			} else {
+				all_nodes.insert(node1_val);
+				all_nodes.insert(node2_val);
+				costs[node1_val][node2_val] = new_cost;
+				costs[node2_val][node1_val] = new_cost;
+			}
+			dijkstra();
+			send_message(messagefile);
+		}
+		in.close();
+	} else {
+		exit(1);
+	}
+}
+
 int main(int argc, char** argv) {
     //printf("Number of arguments: %d", argc);
     if (argc != 4) {
@@ -220,6 +259,7 @@ int main(int argc, char** argv) {
 
 	dijkstra();
 	send_message(argv[2]);
+	read_change(argv[3], argv[2]);
     // for(
     // 	CostMap::const_iterator emit = costs.begin();
     // 	emit != costs.end();
