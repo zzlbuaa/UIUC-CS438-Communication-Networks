@@ -77,6 +77,7 @@ void output_table() {
     		}
     		fprintf(fpout, "%d %d %d\n", j, f_tables[i][j].first, f_tables[i][j].second);
     	}
+    	fprintf(fpout, "\n");
     }
     fclose(fpout);
 }
@@ -201,6 +202,7 @@ void output_message(int src, int dst, char* message) {
 		fprintf(fpout, "%d ", hop);
 	}
 	fprintf(fpout, "message %s\n", message);
+	fprintf(fpout, "\n");
 	fclose(fpout);
 
 }
