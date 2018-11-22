@@ -83,6 +83,7 @@ void dijkstra() {
     	unordered_set<int> confirmed_nodes;
     	unordered_map<int, int> distances;
     	unordered_map<int, int> prev_nodes;
+    	unordered_map<int, int> special_prev_nodes;
 
     	confirmed_nodes.insert(node);
 
@@ -123,15 +124,26 @@ void dijkstra() {
 
     		for (pair<int, int> neighbor: costs[min_node]) {
     			int n_node = neighbor.first;
-    			int n_cost = neighbor.second; 
+    			int n_cost = neighbor.second;
+    			//printf("n_node %d", n_node); 
     			if (confirmed_nodes.count(n_node) > 0) {
+    				//printf("confirmed\n");
     				continue;
     			}
+    			//printf("\n"); 
     			if (distances[min_node] != INT_MAX &&
     				distances[min_node] + n_cost < distances[n_node]) {
     				distances[n_node] = distances[min_node] + n_cost;
     				prev_nodes[n_node] = min_node;
     			}
+    			if (distances[min_node] != INT_MAX &&
+    				distances[min_node] + n_cost == distances[n_node] &&
+    				min_node < prev_nodes[n_node]) {
+    				prev_nodes[n_node] = min_node;
+    			}
+    		}
+    		for (int i = 1; i <= num_nodes; i++) {
+    			printf("prevnode: %d\n", prev_nodes[i]);
     		}
     		printf("node: %d, distance: %d\n", min_node, distances[min_node]);
     	}
@@ -142,6 +154,7 @@ void dijkstra() {
     	while (!min_nodes.empty()) {
     		int cur = min_nodes.front();
     		min_nodes.pop();
+
     		if (prev_nodes[cur] == node) {
     			f_table[cur].first = cur;
     			f_table[cur].second = distances[cur];
