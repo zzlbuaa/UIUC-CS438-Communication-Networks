@@ -188,6 +188,7 @@ void output_message(int src, int dst, char* message) {
 		all_nodes.count(src) <= 0 ||
 		all_nodes.count(dst) <=0) {
 		fprintf(fpout, "from %d to %d cost infinite hops unreachable message %s\n", src, dst, message);
+		fclose(fpout);
 		return;//or continue
 	}
 
