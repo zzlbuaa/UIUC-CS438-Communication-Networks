@@ -202,6 +202,9 @@ void output_message(int src, int dst, char* message) {
 	for (int hop : hops) {
 		fprintf(fpout, "%d ", hop);
 	}
+	if (hops.empty()) {
+		fprintf(fpout, " ");
+	}
 	fprintf(fpout, "message %s\n", message);
 	fprintf(fpout, "\n");
 	fclose(fpout);
