@@ -42,9 +42,11 @@ void readTopo(char* filename) {
 			ss >> node1;
 			ss >> node2;
 			ss >> cost;
-			//cout << node1 << " " << node2 << " " << cost << endl;
 			int node1_val = atoi(node1.c_str());
 			int node2_val = atoi(node2.c_str());
+			if (node1_val == 0 || node2_val == 0) {
+				continue;
+			}
 			all_nodes.insert(node1_val);
 			all_nodes.insert(node2_val);
 			//costs[E((node1_val), node2_val)] = atoi(cost.c_str());
@@ -221,9 +223,13 @@ void send_message(char* messagefile) {
 		while (getline(in, line)) {
 			int message_len = line.length();
 			char message[message_len];
-			int src, dst;
-
-			sscanf(line.c_str(), "%d %d %[^\0]", &src, &dst, message);
+			int src = -1, dst = -1;
+			sscanf(line.c_str(), "%d %d %[^\n]", &src, &dst, message);
+			if (src == -1 || dst == -1) {
+				continue;
+			}
+			printf("src: %d dst: %d ", src, dst);
+			printf("message: %s\n", message);
 			output_message(src, dst, message);
 		}
 		in.close();
@@ -247,6 +253,9 @@ void read_change(char* changefile, char* messagefile) {
 			int node1_val = atoi(node1.c_str());
 			int node2_val = atoi(node2.c_str());
 			int new_cost = atoi(cost.c_str());
+			if (node1_val == 0 || node2_val == 0 || new_cost == 0) {
+				continue;
+			}
 			if (new_cost == -999) {
 				costs[node1_val].erase(node2_val);
 				costs[node2_val].erase(node1_val);
