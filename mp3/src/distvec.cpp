@@ -25,6 +25,10 @@ typedef unordered_map<int, neighbors > CostMap;
 //typedef unordered_map<int, int> f_table;
 //typedef unordered_map<int, f_table> f_tables;
 
+typedef unordered_map<int, pair<int, int> > d_vec;//first: min_dist; second: min_node
+typedef unordered_map<int, d_vec> d_vecs;
+unordered_map<int, d_vecs> all_vecs;
+
 unordered_map<int, unordered_map<int, pair<int, int> > > f_tables;
 
 CostMap costs;
@@ -84,102 +88,204 @@ void output_table() {
     fclose(fpout);
 }
 
-//should return the forwarding table for each node
-void dijkstra() {
+queue<pair<int, d_vec> > message_queue;//first: message src, second: content
+
+void print_table(int node) {
+	printf("table for node %d:\n", node);
+	for (int i = 1; i <= all_nodes.size(); i++) {
+		for (int j = 1; j <= all_nodes.size(); j++) {
+			printf("%d ", all_vecs[node][i][j].first);
+		}
+		printf("\n");
+	}
+	printf("table printing done\n");
+}
+
+void initialize_vectors() {
+	int num_nodes = all_nodes.size();
+	for (int node : all_nodes) {
+		d_vecs vecs;
+
+		d_vec my_vec;
+		for (int v : all_nodes) {
+			if (v == node) {
+				my_vec[v] = make_pair(0, v);
+				continue;
+			}
+
+			if (costs[node].count(v) > 0) {
+	    		my_vec[v] = make_pair(costs[node][v], v);
+	    	} else {
+	    		my_vec[v] = make_pair(INT_MAX, INT_MAX);
+	    	}
+		}
+		message_queue.push(make_pair(node, my_vec));
+		vecs[node] = my_vec;
+
+		for (pair<int, int> neighbor: costs[node]) {
+    		int n_node = neighbor.first;
+    		d_vec neighbor_vec;
+    		//int n_cost = neighbor.second;
+    		for (int v : all_nodes) {
+    			neighbor_vec[v] = make_pair(INT_MAX, INT_MAX);
+    		}
+    		vecs[n_node] = neighbor_vec;
+    	}
+    	all_vecs[node] = vecs;
+    	print_table(node);
+	}
+}
+
+void dist_vector() {
+	initialize_vectors();
 	int num_nodes = all_nodes.size();
 	f_tables.clear();
-	//unordered_map<int, unordered_map<int, pair<int, int> > > f_tables;
-	for (int node: all_nodes) {
-    	printf("current node: %d\n",node);
-    	//Initialization:
-    	unordered_set<int> confirmed_nodes;
-    	unordered_map<int, int> distances;
-    	unordered_map<int, int> prev_nodes;
-    	unordered_map<int, int> special_prev_nodes;
 
-    	confirmed_nodes.insert(node);
+	while (!message_queue.empty()) {
+		pair<int, d_vec> message = message_queue.front();
+		message_queue.pop();
+		int message_src = message.first;
+		d_vec content = message.second;
+		printf("current message src %d\n", message_src);
+		for (pair<int, int> neighbor: costs[message_src]) {
+			int n_node = neighbor.first;
+			vector<int> updates;
+			for (int node : all_nodes) {
+				if (content[node].first < 
+					all_vecs[n_node][message_src][node].first) {
+					updates.push_back(node);
+				}
+			}	
+			if (updates.size() == 0) {
+				continue;
+			}
+			//update distance vector
+			all_vecs[n_node][message_src] = content;
+			print_table(n_node);
+			
+			for (int i = 0; i < updates.size(); i++) {
+				int update = updates[i];
+				//update has to be node's neighbor, so you don't need to 
+				if (costs[n_node][message_src] + content[update].first <=
+					all_vecs[n_node][n_node][update].first) {
+					all_vecs[n_node][n_node][update].first = costs[n_node][message_src] + content[update].first;
+					all_vecs[n_node][n_node][update].second = min(message_src, all_vecs[n_node][n_node][update].second);
+				}
+			}
+			message_queue.push(make_pair(n_node, all_vecs[n_node][n_node]));
+		}
+	}
 
-    	for (int v: all_nodes) {
-    		if (costs[node].count(v) > 0) {
-    			distances[v] = costs[node][v];
-    		} else {
-    			distances[v] = INT_MAX;
-    		}
-    		prev_nodes[v] = node;
-    		//printf("node: %d, distance: %d\n", v, distances[v]);
-    	}
-
-    	queue<int> min_nodes;
-    	//Loop all_nodes.size() - 1 times
-    	for (int i = 0; i < num_nodes - 1; i++) {
-    		int min_dist = INT_MAX;
-    		int min_node = INT_MAX;
-    		//Step1: select min node that is not confirmed
-    		for (int v: all_nodes) {
-    			if (confirmed_nodes.count(v) > 0) {
-    				continue;
-    			}
-    			if (distances[v] < min_dist) {
-    				min_dist = distances[v];
-    				min_node = v;
-    			
-    			}
-    			if (distances[v] == min_dist) {
-    				//Choose the lower ID if there's a tie
-    				min_node = min(v, min_node);
-    				
-    			}
-    		}
-    		printf("current min_node: %d\n", min_node);
-    		confirmed_nodes.insert(min_node);
-    		min_nodes.push(min_node);
-
-    		for (pair<int, int> neighbor: costs[min_node]) {
-    			int n_node = neighbor.first;
-    			int n_cost = neighbor.second;
-    			//printf("n_node %d", n_node); 
-    			if (confirmed_nodes.count(n_node) > 0) {
-    				//printf("confirmed\n");
-    				continue;
-    			}
-    			//printf("\n"); 
-    			if (distances[min_node] != INT_MAX &&
-    				distances[min_node] + n_cost < distances[n_node]) {
-    				distances[n_node] = distances[min_node] + n_cost;
-    				prev_nodes[n_node] = min_node;
-    			}
-    			if (distances[min_node] != INT_MAX &&
-    				distances[min_node] + n_cost == distances[n_node] &&
-    				min_node < prev_nodes[n_node]) {
-    				prev_nodes[n_node] = min_node;
-    			}
-    		}
-    		//for (int i = 1; i <= num_nodes; i++) {
-    		//	printf("prevnode: %d\n", prev_nodes[i]);
-    		//}
-    		//printf("node: %d, distance: %d\n", min_node, distances[min_node]);
-    	}
-
-    	unordered_map<int, pair<int, int> > f_table;
-    	f_table[node].first = node;
-    	f_table[node].second = 0;
-    	while (!min_nodes.empty()) {
-    		int cur = min_nodes.front();
-    		min_nodes.pop();
-
-    		if (prev_nodes[cur] == node) {
-    			f_table[cur].first = cur;
-    			f_table[cur].second = distances[cur];
-    		} else {
-    			f_table[cur].first = f_table[prev_nodes[cur]].first;
-    			f_table[cur].second = distances[cur];
-    		}
-    	}
-    	f_tables[node] = f_table;
-    }
-    output_table();
-    //return f_tables;
+	for (int src : all_nodes) {
+		unordered_map<int, pair<int, int> > f_table;
+		printf("printing f_table\n");
+		for (int dst : all_nodes) {
+			f_table[dst].first = all_vecs[src][src][dst].second;
+			f_table[dst].second = all_vecs[src][src][dst].first;
+			printf("from %d to %d next_hop: %d, cost: %d\n", src, dst, f_table[dst].first, f_table[dst].second);
+ 		}
+ 		printf("printing f_table done\n");
+ 		f_tables[src] = f_table;
+	}
+	output_table();
 }
+
+// //should return the forwarding table for each node
+// void dijkstra() {
+// 	int num_nodes = all_nodes.size();
+// 	f_tables.clear();
+// 	//unordered_map<int, unordered_map<int, pair<int, int> > > f_tables;
+// 	for (int node: all_nodes) {
+//     	printf("current node: %d\n",node);
+//     	//Initialization:
+//     	unordered_set<int> confirmed_nodes;
+//     	unordered_map<int, int> distances;
+//     	unordered_map<int, int> prev_nodes;
+//     	unordered_map<int, int> special_prev_nodes;
+
+//     	confirmed_nodes.insert(node);
+
+//     	for (int v: all_nodes) {
+//     		if (costs[node].count(v) > 0) {
+//     			distances[v] = costs[node][v];
+//     		} else {
+//     			distances[v] = INT_MAX;
+//     		}
+//     		prev_nodes[v] = node;
+//     		//printf("node: %d, distance: %d\n", v, distances[v]);
+//     	}
+
+//     	queue<int> min_nodes;
+//     	//Loop all_nodes.size() - 1 times
+//     	for (int i = 0; i < num_nodes - 1; i++) {
+//     		int min_dist = INT_MAX;
+//     		int min_node = INT_MAX;
+//     		//Step1: select min node that is not confirmed
+//     		for (int v: all_nodes) {
+//     			if (confirmed_nodes.count(v) > 0) {
+//     				continue;
+//     			}
+//     			if (distances[v] < min_dist) {
+//     				min_dist = distances[v];
+//     				min_node = v;
+    			
+//     			}
+//     			if (distances[v] == min_dist) {
+//     				//Choose the lower ID if there's a tie
+//     				min_node = min(v, min_node);
+    				
+//     			}
+//     		}
+//     		printf("current min_node: %d\n", min_node);
+//     		confirmed_nodes.insert(min_node);
+//     		min_nodes.push(min_node);
+
+//     		for (pair<int, int> neighbor: costs[min_node]) {
+//     			int n_node = neighbor.first;
+//     			int n_cost = neighbor.second;
+//     			//printf("n_node %d", n_node); 
+//     			if (confirmed_nodes.count(n_node) > 0) {
+//     				//printf("confirmed\n");
+//     				continue;
+//     			}
+//     			//printf("\n"); 
+//     			if (distances[min_node] != INT_MAX &&
+//     				distances[min_node] + n_cost < distances[n_node]) {
+//     				distances[n_node] = distances[min_node] + n_cost;
+//     				prev_nodes[n_node] = min_node;
+//     			}
+//     			if (distances[min_node] != INT_MAX &&
+//     				distances[min_node] + n_cost == distances[n_node] &&
+//     				min_node < prev_nodes[n_node]) {
+//     				prev_nodes[n_node] = min_node;
+//     			}
+//     		}
+//     		//for (int i = 1; i <= num_nodes; i++) {
+//     		//	printf("prevnode: %d\n", prev_nodes[i]);
+//     		//}
+//     		//printf("node: %d, distance: %d\n", min_node, distances[min_node]);
+//     	}
+
+//     	unordered_map<int, pair<int, int> > f_table;
+//     	f_table[node].first = node;
+//     	f_table[node].second = 0;
+//     	while (!min_nodes.empty()) {
+//     		int cur = min_nodes.front();
+//     		min_nodes.pop();
+
+//     		if (prev_nodes[cur] == node) {
+//     			f_table[cur].first = cur;
+//     			f_table[cur].second = distances[cur];
+//     		} else {
+//     			f_table[cur].first = f_table[prev_nodes[cur]].first;
+//     			f_table[cur].second = distances[cur];
+//     		}
+//     	}
+//     	f_tables[node] = f_table;
+//     }
+//     output_table();
+//     //return f_tables;
+// }
 
 void output_message(int src, int dst, char* message) {
 	FILE * fpout;
@@ -271,7 +377,7 @@ void read_change(char* changefile, char* messagefile) {
 				costs[node1_val][node2_val] = new_cost;
 				costs[node2_val][node1_val] = new_cost;
 			}
-			dijkstra();
+			dist_vector();
 			send_message(messagefile);
 		}
 		in.close();
@@ -296,32 +402,9 @@ int main(int argc, char** argv) {
 
 
 
-	dijkstra();
+	dist_vector();
 	send_message(argv[2]);
 	read_change(argv[3], argv[2]);
-    // for(
-    // 	CostMap::const_iterator emit = costs.begin();
-    // 	emit != costs.end();
-    // 	emit++) {
-    // 	printf("(%d %d) %d\n", emit->first.first, emit->first.second, emit->second);
-    // }
-
-    // for(
-    // 	auto emit = all_nodes.begin();
-    // 	emit != all_nodes.end();
-    // 	emit++) {
-    // 	printf("%d\n", *emit);
-    // }
-
-    // for (pair<int, neighbors > costmap : costs) {
-    // 	for (pair<int, int> elem : costmap.second) {
-    // 		printf("(%d %d) %d\n", costmap.first, elem.first, elem.second);
-    // 	}
-    // }
-
-    // for (int elem: all_nodes) {
-    // 	printf("%d\n", elem);
-    // }
 
     return 0;
 }

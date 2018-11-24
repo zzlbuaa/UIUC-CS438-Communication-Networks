@@ -110,7 +110,7 @@ void dijkstra() {
     	}
 
     	queue<int> min_nodes;
-    	//Loop all_nodes.size() - 1 times
+    	//Loop all_nodes.size() - 1 times in a round of dijkstra
     	for (int i = 0; i < num_nodes - 1; i++) {
     		int min_dist = INT_MAX;
     		int min_node = INT_MAX;
@@ -299,29 +299,6 @@ int main(int argc, char** argv) {
 	dijkstra();
 	send_message(argv[2]);
 	read_change(argv[3], argv[2]);
-    // for(
-    // 	CostMap::const_iterator emit = costs.begin();
-    // 	emit != costs.end();
-    // 	emit++) {
-    // 	printf("(%d %d) %d\n", emit->first.first, emit->first.second, emit->second);
-    // }
-
-    // for(
-    // 	auto emit = all_nodes.begin();
-    // 	emit != all_nodes.end();
-    // 	emit++) {
-    // 	printf("%d\n", *emit);
-    // }
-
-    // for (pair<int, neighbors > costmap : costs) {
-    // 	for (pair<int, int> elem : costmap.second) {
-    // 		printf("(%d %d) %d\n", costmap.first, elem.first, elem.second);
-    // 	}
-    // }
-
-    // for (int elem: all_nodes) {
-    // 	printf("%d\n", elem);
-    // }
 
     return 0;
 }
