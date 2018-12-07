@@ -27,7 +27,25 @@ int transmitted_pckt = 0;
 int unused_time = 0;
 vector<int> collisions;
 
+vector<int>success_transmits;
 
+double calculateVariance(vector<int> data) {
+	int size = data.size();
+	int sum = 0; 
+
+	for (int i = 0; i < size; i++) {
+		sum += data[i];
+	}
+
+	double mean = (double)sum / (double)size;
+
+	double sqDiff = 0;
+	for (int i = 0; i < size; i++) {
+		sqDiff += (data[i] - mean) * (data[i] - mean);
+	}
+
+	return sqDiff / (double)size;
+}
 
 void parseLine(string line) {
 	string input_type = "";
@@ -97,6 +115,7 @@ void run_simulation() {
 		attempts.push_back(0);
 		collisions.push_back(0);
 		Rs.push_back(ranges[0]);
+		success_transmits.push_back(0);
 	}
 
 	//initialize backoffs
@@ -119,6 +138,7 @@ void run_simulation() {
 			}
 			transmitted_pckt++;
 			channelOccupied = false;
+			success_transmits[transmit_pckt] += 1;
 			Rs[transmit_pckt] = ranges[0];
 			attempts[transmit_pckt] = 0;
 			backoffs[transmit_pckt] = getRandom(Rs[transmit_pckt]);	
@@ -195,6 +215,13 @@ void output_stats(char* filename) {
 
 	fpout = fopen(filename, "a");
 
+	fprintf(fpout, "Channel utilization (in percentage) %%%f\n", 100 * (1.0 * channel_occu_time) / (1.0 * simu_time));
+	fprintf(fpout, "Channel idle fraction (in percentage) %%%f\n", 100 * (1.0 * unused_time) / (1.0 * simu_time));
+	fprintf(fpout, "Total number of collisions %d\n", total_collision);
+	fprintf(fpout, "Variance in number of successful transmissions (across all nodes) %f\n", calculateVariance(success_transmits));
+	fprintf(fpout, "Variance in number of collisions (across all nodes) %f\n", calculateVariance(collisions));
+
+
 	//b
 	// fprintf(fpout, "%d\n", num_nodes);
 	// fprintf(fpout, "%f\n", (1.0 * unused_time) / (1.0 * simu_time));
@@ -209,9 +236,9 @@ void output_stats(char* filename) {
 	// fprintf(fpout, "%f\n", (1.0 * channel_occu_time) / (1.0 * simu_time));
 
 	//e
-	fprintf(fpout, "%d\n", pckt_size);
-	fprintf(fpout, "%d\n", num_nodes);
-	fprintf(fpout, "%f\n", (1.0 * channel_occu_time) / (1.0 * simu_time));
+	// fprintf(fpout, "%d\n", pckt_size);
+	// fprintf(fpout, "%d\n", num_nodes);
+	// fprintf(fpout, "%f\n", (1.0 * channel_occu_time) / (1.0 * simu_time));
 
 	//fprintf(fpout, "%d\n", num_nodes);
 	//fprintf(fpout, "%d\n", channel_occu_time);
@@ -237,6 +264,16 @@ int main(int argc, char** argv) {
     readInput(argv[1]);
 
     cout << "------Start simulation------" << endl;
+
+	//statistics for analysis
+	channel_idle_time = 0;
+	channel_occu_time = 0;
+	total_collision = 0;
+	transmitted_pckt = 0;
+	unused_time = 0;
+
+	run_simulation();
+	output_stats("output.txt");
     
     //uncomment for test c
   //   for (int n = 10; n <= 500; n += 10) {
@@ -296,37 +333,42 @@ int main(int argc, char** argv) {
 	// }
 
 	//psize
-	for (int p_len = 20; p_len <= 100; p_len += 20) {
-    	cout << "p_len: " << p_len << endl; 
-    	pckt_size = p_len;
-	    for (int n = 10; n <= 500; n += 10) {
-	    	//statistics for analysis
-	    	channel_idle_time = 0;
-			channel_occu_time = 0;
-			total_collision = 0;
-			transmitted_pckt = 0;
-			unused_time = 0;
+	// for (int p_len = 20; p_len <= 100; p_len += 20) {
+ //    	cout << "p_len: " << p_len << endl; 
+ //    	pckt_size = p_len;
+	//     for (int n = 10; n <= 500; n += 10) {
+	//     	//statistics for analysis
+	//     	channel_idle_time = 0;
+	// 		channel_occu_time = 0;
+	// 		total_collision = 0;
+	// 		transmitted_pckt = 0;
+	// 		unused_time = 0;
 			
 			
-			//variable
-			num_nodes = n;
+	// 		//variable
+	// 		num_nodes = n;
 
-			run_simulation();
-			output_stats("output.txt");
-	    }
-	}
+	// 		run_simulation();
+	// 		output_stats("output.txt");
+	//     }
+	// }
 
 
     printf("Simulation finished.\n");
- //    cout << "channel_idle_time: " << channel_idle_time << endl;
- //    cout << "channel_occu_time: " << channel_occu_time << endl; 
- //    cout << "total_collision: " << total_collision << endl; 
- //    cout << "transmitted_pckt" << transmitted_pckt << endl;
- //    cout << "unused_time" << unused_time << endl;
- //    cout << "collisions: ";
-	// for (int i = 0; i < num_nodes; i++) {
-	// 	cout << collisions[i] << " ";
-	// }
-	// cout << endl;
+    cout << "channel_idle_time: " << channel_idle_time << endl;
+    cout << "channel_occu_time: " << channel_occu_time << endl; 
+    cout << "total_collision: " << total_collision << endl; 
+    cout << "transmitted_pckt" << transmitted_pckt << endl;
+    cout << "unused_time" << unused_time << endl;
+    cout << "collisions: ";
+	for (int i = 0; i < num_nodes; i++) {
+		cout << collisions[i] << " ";
+	}
+	cout << endl;
+	cout << "success transmits: ";
+	for (int i = 0; i < num_nodes; i++) {
+		cout << success_transmits[i] << " ";
+	}
+	cout << endl;
     return 0;
 }
