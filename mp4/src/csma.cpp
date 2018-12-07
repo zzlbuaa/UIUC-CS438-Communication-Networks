@@ -1,289 +1,232 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <limits.h>
-#include <stdint.h>
-
+#include <time.h> 
+#include <vector>
+#include <string>
 #include <iostream>
 #include <fstream>
-#include <vector>
-#include <map>
-#include <unordered_set>
-#include <unordered_map>
-#include <queue>
-#include <string>
+#include <iterator>
 #include <sstream>
 
 using namespace std;
 
-//typedef pair<int, int> E;
-//typedef map<E, int> CostMap;
+int num_nodes;
+int pckt_size;
+vector<int> ranges;
+int max_attempt;
+int simu_time;
+bool channelOccupied = false;
+vector<int> backoffs;
+vector<int> attempts;
 
-typedef unordered_map<int, int> neighbors;
-typedef unordered_map<int, neighbors > CostMap;
+//Statistics for analysis
+int channel_idle_time = 0;
+int channel_occu_time = 0;
+int total_collision = 0;
+int transmitted_pckt = 0;
+int unused_time = 0;
+vector<int> collisions;
 
-//typedef unordered_map<int, int> f_table;
-//typedef unordered_map<int, f_table> f_tables;
 
-unordered_map<int, unordered_map<int, pair<int, int> > > f_tables;
 
-CostMap costs;
-unordered_set<int> all_nodes;
+void parseLine(string line) {
+	string input_type = "";
+    istringstream ss(line);
+    for(std::string s; ss >> s; ) {
+        if (input_type == "N") {
+        	num_nodes = atoi(s.c_str());
+        }
+        if (input_type == "L") {
+        	pckt_size = atoi(s.c_str());
+        }
+        if (input_type == "M") {
+        	max_attempt = atoi(s.c_str());
+        }
+        if (input_type == "T") {
+        	simu_time = atoi(s.c_str());
+        }
+        if (input_type == "R") {
+        	ranges.push_back(atoi(s.c_str()));
+        }
 
-void readTopo(char* filename) {
+        if (s == "N" || s == "L" || s == "R" || s == "M" || s == "T") {
+        	input_type = s;
+        }
+    }
+}
+
+
+void readInput(char* filename) {
 	ifstream in;
 	string line;
 	in.open(filename);
 
 	if (in.is_open()) {
-		while (getline(in, line)) {
-			stringstream ss(line);
-			string node1, node2, cost;
-			ss >> node1;
-			ss >> node2;
-			ss >> cost;
-			int node1_val = atoi(node1.c_str());
-			int node2_val = atoi(node2.c_str());
-			if (node1_val == 0 || node2_val == 0) {
-				continue;
-			}
-			all_nodes.insert(node1_val);
-			all_nodes.insert(node2_val);
-			//costs[E((node1_val), node2_val)] = atoi(cost.c_str());
-			costs[node1_val][node2_val] = atoi(cost.c_str());
-			costs[node2_val][node1_val] = atoi(cost.c_str());
-		
+		for (int i =0; i < 5; i++) {
+			getline(in, line);
+			parseLine(line); 
 		}
 		in.close();
+		cout << "------Simulation parameters initializing------" << endl;
+	    cout << "number of nodes: " << num_nodes << endl;
+		cout << "size of packet: " << pckt_size << endl;
+		cout << "backoff times: ";
+		for (int i : ranges) {
+			cout << i << " ";
+		}
+		cout << endl;
+		cout << "max attempt:" << max_attempt << endl;
+		cout << "time of simulation:" << simu_time << endl;
 	} else {
 		exit(1);
 	}
 }
 
-void output_table() {
-	FILE * fpout;
-	fpout = fopen("output.txt", "a");
-
-	int num_nodes = all_nodes.size();
-	for (int i = 1; i <= num_nodes; i++) {
-    	for (int j = 1; j <= num_nodes; j++) {
-    		if (all_nodes.count(i) <= 0 || all_nodes.count(j) <= 0) {
-    			continue;
-    		}
-    		if (f_tables[i][j].second == INT_MAX) {
-    			continue;
-    		}
-    		if (i == j) {
-    			fprintf(fpout, "%d %d %d\n", j, j, 0);
-    			continue;
-    		}
-    		fprintf(fpout, "%d %d %d\n", j, f_tables[i][j].first, f_tables[i][j].second);
-    	}
-    	fprintf(fpout, "\n");
-    }
-    fclose(fpout);
+int getRandom(int range) {
+	return rand() % (range + 1);
 }
 
-//should return the forwarding table for each node
-void dijkstra() {
-	int num_nodes = all_nodes.size();
-	f_tables.clear();
-	//unordered_map<int, unordered_map<int, pair<int, int> > > f_tables;
-	for (int node: all_nodes) {
-    	printf("current node: %d\n",node);
-    	//Initialization:
-    	unordered_set<int> confirmed_nodes;
-    	unordered_map<int, int> distances;
-    	unordered_map<int, int> prev_nodes;
-    	unordered_map<int, int> special_prev_nodes;
+void run_simulation() {
+	int time_to_finish = 0;
+	int max_range = ranges[ranges.size() - 1];
+	int transmit_pckt;
+	vector<int> Rs;
+	attempts.clear();
+	collisions.clear();
+	for (int i = 0; i < num_nodes; i++) {
+		attempts.push_back(0);
+		collisions.push_back(0);
+		Rs.push_back(ranges[0]);
+	}
 
-    	confirmed_nodes.insert(node);
+	//initialize backoffs
+	srand (time(NULL));
+	backoffs.clear();
+	for (int i = 0; i < num_nodes; i++) {
+		backoffs.push_back(getRandom(Rs[i]));
+		//cout << backoffs[i] << endl;
+	}
 
-    	for (int v: all_nodes) {
-    		if (costs[node].count(v) > 0) {
-    			distances[v] = costs[node][v];
-    		} else {
-    			distances[v] = INT_MAX;
-    		}
-    		prev_nodes[v] = node;
-    		//printf("node: %d, distance: %d\n", v, distances[v]);
-    	}
+	//run simulation for simu_time
+	for (int t = 0; t < simu_time; t++) {
+		//getchar();
+		//if channel occupied, transmit the packet and freeze all counts
+		if (channelOccupied) {
+			if (time_to_finish > 0) {
+				time_to_finish--;
+				channel_occu_time++;
+				continue;
+			}
+			transmitted_pckt++;
+			channelOccupied = false;
+			Rs[transmit_pckt] = ranges[0];
+			attempts[transmit_pckt] = 0;
+			backoffs[transmit_pckt] = getRandom(Rs[transmit_pckt]);	
+		}
 
-    	queue<int> min_nodes;
-    	//Loop all_nodes.size() - 1 times in a round of dijkstra
-    	for (int i = 0; i < num_nodes - 1; i++) {
-    		int min_dist = INT_MAX;
-    		int min_node = INT_MAX;
-    		//Step1: select min node that is not confirmed
-    		for (int v: all_nodes) {
-    			if (confirmed_nodes.count(v) > 0) {
-    				continue;
-    			}
-    			if (distances[v] < min_dist) {
-    				min_dist = distances[v];
-    				min_node = v;
-    			
-    			}
-    			if (distances[v] == min_dist) {
-    				//Choose the lower ID if there's a tie
-    				min_node = min(v, min_node);
-    				
-    			}
-    		}
-    		printf("current min_node: %d\n", min_node);
-    		confirmed_nodes.insert(min_node);
-    		min_nodes.push(min_node);
+		// cout << "backoffs: ";
+		// for (int i = 0; i < num_nodes; i++) {
+		// 	cout << backoffs[i] << " ";
+		// }
+		// cout << endl;
+		// cout << "attempts: ";
+		// for (int i = 0; i < num_nodes; i++) {
+		// 	cout << attempts[i] << " ";
+		// }
+		// cout << endl;
+		// cout << "Rs: ";
+		// for (int i = 0; i < num_nodes; i++) {
+		// 	cout << Rs[i] << " ";
+		// }
+		// cout << endl;
 
-    		for (pair<int, int> neighbor: costs[min_node]) {
-    			int n_node = neighbor.first;
-    			int n_cost = neighbor.second;
-    			//printf("n_node %d", n_node); 
-    			if (confirmed_nodes.count(n_node) > 0) {
-    				//printf("confirmed\n");
-    				continue;
-    			}
-    			//printf("\n"); 
-    			if (distances[min_node] != INT_MAX &&
-    				distances[min_node] + n_cost < distances[n_node]) {
-    				distances[n_node] = distances[min_node] + n_cost;
-    				prev_nodes[n_node] = min_node;
-    			}
-    			if (distances[min_node] != INT_MAX &&
-    				distances[min_node] + n_cost == distances[n_node] &&
-    				min_node < prev_nodes[n_node]) {
-    				prev_nodes[n_node] = min_node;
-    			}
-    		}
-    		//for (int i = 1; i <= num_nodes; i++) {
-    		//	printf("prevnode: %d\n", prev_nodes[i]);
-    		//}
-    		//printf("node: %d, distance: %d\n", min_node, distances[min_node]);
-    	}
+		vector<int> candidates;
+		for (int idx = 0; idx < num_nodes; idx++) {
+			if (backoffs[idx] == 0) {
+				candidates.push_back(idx);
+			}
+		}
+		//cout << "candidates size" << candidates.size() << endl;
+		//if no one counts to 0, decrement everyone and continue
+		if (candidates.size() == 0) {
+			for (int i = 0; i < num_nodes; i++) {
+				backoffs[i] -= 1;
+			}
+			channel_idle_time++;
+			unused_time++;
+			continue;
+		}
+		//if there is no collision, start transmission
+		if (candidates.size() == 1) {
+			channelOccupied = true;
+			time_to_finish = pckt_size - 1;
+			channel_occu_time++;
+			transmit_pckt = candidates[0];
+			continue;
+		}
+		//collision happens
+		if (candidates.size() > 1) {
+			channel_idle_time++;
+			total_collision++;
+			for (int idx : candidates) {
+				//double the backoff range
+				if (Rs[idx] * 2 <= max_range) {
+					Rs[idx] *= 2;
+				}
+				collisions[idx]++;
+				attempts[idx]++;
+				//reach max attempt, drop the pckt and reset
+				if (attempts[idx] >= max_attempt) {
+					Rs[idx] = ranges[0];
+					attempts[idx] = 0;
+				}
+				backoffs[idx] = getRandom(Rs[idx]) + 1;
+			}
+			for (int i = 0; i < num_nodes; i++) {
+				backoffs[i] -= 1;
+			}
+		}
 
-    	unordered_map<int, pair<int, int> > f_table;
-    	f_table[node].first = node;
-    	f_table[node].second = 0;
-    	while (!min_nodes.empty()) {
-    		int cur = min_nodes.front();
-    		min_nodes.pop();
-
-    		if (prev_nodes[cur] == node) {
-    			f_table[cur].first = cur;
-    			f_table[cur].second = distances[cur];
-    		} else {
-    			f_table[cur].first = f_table[prev_nodes[cur]].first;
-    			f_table[cur].second = distances[cur];
-    		}
-    	}
-    	f_tables[node] = f_table;
-    }
-    output_table();
-    //return f_tables;
+	}
 }
 
-void output_message(int src, int dst, char* message) {
+void output_stats(char* filename) {
 	FILE * fpout;
 
-	fpout = fopen("output.txt", "a");
+	fpout = fopen(filename, "a");
 
-	if (f_tables[src][dst].second == INT_MAX || 
-		all_nodes.count(src) <= 0 ||
-		all_nodes.count(dst) <=0) {
-		fprintf(fpout, "from %d to %d cost infinite hops unreachable message %s\n", src, dst, message);
-		fclose(fpout);
-		return;//or continue
-	}
+	//b
+	// fprintf(fpout, "%d\n", num_nodes);
+	// fprintf(fpout, "%f\n", (1.0 * unused_time) / (1.0 * simu_time));
 
-	vector<int> hops;
-	int curt_hop = src;
-	while (curt_hop != dst) {
-		hops.push_back(curt_hop);
-		curt_hop = f_tables[curt_hop][dst].first;	
-	}
-	fprintf(fpout, "from %d to %d cost %d hops ", src, dst, f_tables[src][dst].second);
-	for (int hop : hops) {
-		fprintf(fpout, "%d ", hop);
-	}
-	if (hops.empty()) {
-		fprintf(fpout, " ");
-	}
-	fprintf(fpout, "message %s\n", message);
+	//c
+	// fprintf(fpout, "%d\n", num_nodes);
+	// fprintf(fpout, "%d\n", total_collision);
+
+	//d
+	// fprintf(fpout, "%d\n", ranges[0]);
+	// fprintf(fpout, "%d\n", num_nodes);
+	// fprintf(fpout, "%f\n", (1.0 * channel_occu_time) / (1.0 * simu_time));
+
+	//e
+	fprintf(fpout, "%d\n", pckt_size);
+	fprintf(fpout, "%d\n", num_nodes);
+	fprintf(fpout, "%f\n", (1.0 * channel_occu_time) / (1.0 * simu_time));
+
+	//fprintf(fpout, "%d\n", num_nodes);
+	//fprintf(fpout, "%d\n", channel_occu_time);
+	//fprintf(fpout, "%d\n", channel_idle_time);
+	//fprintf(fpout, "%d\n", unused_time);
+	//fprintf(fpout, "%d\n", total_collision);
+	//fprintf(fpout, "%d\n", transmitted_pckt);
 	fprintf(fpout, "\n");
 	fclose(fpout);
-
-}
-
-void send_message(char* messagefile) {
-	//messagefile: 2 1 send this message from 2 to 1
-	ifstream in;
-	string line;
-	in.open(messagefile);
-
-	if (in.is_open()) {
-		while (getline(in, line)) {
-			int message_len = line.length();
-			char message[message_len];
-			int src = -1, dst = -1;
-			sscanf(line.c_str(), "%d %d %[^\n]", &src, &dst, message);
-			if (src == -1 || dst == -1) {
-				continue;
-			}
-			printf("src: %d dst: %d ", src, dst);
-			printf("message: %s\n", message);
-			output_message(src, dst, message);
-		}
-		in.close();
-	} else {
-		exit(2);
-	}
-}
-
-void read_change(char* changefile, char* messagefile) {
-	ifstream in;
-	string line;
-	in.open(changefile);
-
-	if (in.is_open()) {
-		while (getline(in, line)) {
-			stringstream ss(line);
-			string node1, node2, cost;
-			ss >> node1;
-			ss >> node2;
-			ss >> cost;
-			int node1_val = atoi(node1.c_str());
-			int node2_val = atoi(node2.c_str());
-			int new_cost = atoi(cost.c_str());
-			if (node1_val == 0 || node2_val == 0 || new_cost == 0) {
-				continue;
-			}
-			if (new_cost == -999) {
-				costs[node1_val].erase(node2_val);
-				costs[node2_val].erase(node1_val);
-				if (costs.count(node1_val) <= 0) {
-					all_nodes.erase(node1_val);
-				}
-				if (costs.count(node2_val) <= 0) {
-					all_nodes.erase(node2_val);
-				}
-			} else {
-				all_nodes.insert(node1_val);
-				all_nodes.insert(node2_val);
-				costs[node1_val][node2_val] = new_cost;
-				costs[node2_val][node1_val] = new_cost;
-			}
-			dijkstra();
-			send_message(messagefile);
-		}
-		in.close();
-	} else {
-		exit(1);
-	}
 }
 
 int main(int argc, char** argv) {
     //printf("Number of arguments: %d", argc);
-    if (argc != 4) {
-        printf("Usage: ./linkstate topofile messagefile changesfile\n");
+    if (argc != 2) {
+        printf("Usage: ./csma input.txt\n");
         return -1;
     }
 
@@ -291,14 +234,99 @@ int main(int argc, char** argv) {
     fpOut = fopen("output.txt", "w");
     fclose(fpOut);
 
-    readTopo(argv[1]);
-    printf("costs contains:\n");
+    readInput(argv[1]);
+
+    cout << "------Start simulation------" << endl;
+    
+    //uncomment for test c
+  //   for (int n = 10; n <= 500; n += 10) {
+  //   	//statistics for analysis
+  //   	channel_idle_time = 0;
+		// channel_occu_time = 0;
+		// total_collision = 0;
+		// transmitted_pckt = 0;
+		// unused_time = 0;
+		
+		// //variable
+		// num_nodes = n;
+
+		// run_simulation();
+		// output_stats("output.txt");
+  //   }
+
+    //uncomment for b
+  //   for (int n = 10; n <= 500; n += 10) {
+  //   	//statistics for analysis
+  //   	channel_idle_time = 0;
+		// channel_occu_time = 0;
+		// total_collision = 0;
+		// transmitted_pckt = 0;
+		// unused_time = 0;
+		
+		// //variable
+		// num_nodes = n;
+
+		// run_simulation();
+		// output_stats("output.txt");
+  //   }
+
+    //uncomment for test of r_start
+ //    for (int r_start = 1; r_start <= 16; r_start *= 2) {
+ //    	cout << "r_start: " << r_start << endl; 
+ //    	ranges.clear();
+ //    	int r = r_start;
+ //    	for (int i = 0; i < 7; i++) {
+ //    		ranges.push_back(r);
+ //    		r *= 2;
+ //    	}
+	//     for (int n = 10; n <= 500; n += 10) {
+	//     	//statistics for analysis
+	//     	channel_idle_time = 0;
+	// 		channel_occu_time = 0;
+	// 		total_collision = 0;
+	// 		transmitted_pckt = 0;
+	// 		unused_time = 0;
+			
+	// 		//variable
+	// 		num_nodes = n;
+
+	// 		run_simulation();
+	// 		output_stats("output.txt");
+	//     }
+	// }
+
+	//psize
+	for (int p_len = 20; p_len <= 100; p_len += 20) {
+    	cout << "p_len: " << p_len << endl; 
+    	pckt_size = p_len;
+	    for (int n = 10; n <= 500; n += 10) {
+	    	//statistics for analysis
+	    	channel_idle_time = 0;
+			channel_occu_time = 0;
+			total_collision = 0;
+			transmitted_pckt = 0;
+			unused_time = 0;
+			
+			
+			//variable
+			num_nodes = n;
+
+			run_simulation();
+			output_stats("output.txt");
+	    }
+	}
 
 
-
-	dijkstra();
-	send_message(argv[2]);
-	read_change(argv[3], argv[2]);
-
+    printf("Simulation finished.\n");
+ //    cout << "channel_idle_time: " << channel_idle_time << endl;
+ //    cout << "channel_occu_time: " << channel_occu_time << endl; 
+ //    cout << "total_collision: " << total_collision << endl; 
+ //    cout << "transmitted_pckt" << transmitted_pckt << endl;
+ //    cout << "unused_time" << unused_time << endl;
+ //    cout << "collisions: ";
+	// for (int i = 0; i < num_nodes; i++) {
+	// 	cout << collisions[i] << " ";
+	// }
+	// cout << endl;
     return 0;
 }
