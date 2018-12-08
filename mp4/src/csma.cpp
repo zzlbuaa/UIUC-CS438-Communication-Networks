@@ -187,13 +187,13 @@ void run_simulation() {
 		//collision happens
 		if (candidates.size() > 1) {
 			channel_idle_time++;
-			total_collision++;
+			total_collision += candidates.size();
 			for (int idx : candidates) {
 				//double the backoff range
 				if (Rs[idx] * 2 <= max_range) {
 					Rs[idx] *= 2;
 				}
-				collisions[idx]++;
+				collisions[idx] += 1;
 				attempts[idx]++;
 				//reach max attempt, drop the pckt and reset
 				if (attempts[idx] >= max_attempt) {
@@ -215,6 +215,7 @@ void output_stats(char* filename) {
 
 	fpout = fopen(filename, "a");
 
+	//original
 	fprintf(fpout, "Channel utilization (in percentage) %%%f\n", 100 * (1.0 * channel_occu_time) / (1.0 * simu_time));
 	fprintf(fpout, "Channel idle fraction (in percentage) %%%f\n", 100 * (1.0 * unused_time) / (1.0 * simu_time));
 	fprintf(fpout, "Total number of collisions %d\n", total_collision);
@@ -265,6 +266,7 @@ int main(int argc, char** argv) {
 
     cout << "------Start simulation------" << endl;
 
+	//original
 	//statistics for analysis
 	channel_idle_time = 0;
 	channel_occu_time = 0;
